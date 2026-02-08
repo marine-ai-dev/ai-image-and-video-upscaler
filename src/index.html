@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta name="description" data-i18n="meta.description" data-i18n-attr="content"
+          content="Browser-only AI video upscaler. Free, fast, no installs. Your video stays on your device.">
+    <meta property="og:title" data-i18n="meta.og_title" data-i18n-attr="content" content="AI Video Upscaler">
+    <meta property="og:description" data-i18n="meta.og_description" data-i18n-attr="content"
+          content="Browser-only AI video upscaler. Free, fast, no installs. Your video stays on your device.">
+    <meta property="og:image" content="hero-screenshot-anime4k-small.png">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" data-i18n="meta.twitter_title" data-i18n-attr="content" content="AI Video Upscaler">
+    <meta property="twitter:description" data-i18n="meta.twitter_description" data-i18n-attr="content"
+          content="Browser-only AI video upscaler. Free, fast, no installs. Your video stays on your device.">
+    <meta property="twitter:image" content="hero-screenshot-anime4k-small.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=Rubik:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="logo.svg">
+
+    <title data-i18n="meta.title">AI Video Upscaler</title>
+</head>
+
+<body x-data="{}" style="display: none;">
+<div class="page">
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <div class="brand-text">
+                <div class="brand-name" data-i18n="brand.name">Video Upscaler</div>
+                <div class="brand-tagline" data-i18n="brand.tagline">AI upscaling in your browser</div>
+            </div>
+        </div>
+        <div class="header-controls">
+            <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+                <span class="theme-icon theme-icon--sun" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M12 4.5a1 1 0 0 1 1 1V7a1 1 0 1 1-2 0V5.5a1 1 0 0 1 1-1Zm0 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.5-3.5a1 1 0 0 1 1 1v0.5a1 1 0 1 1-2 0V12a1 1 0 0 1 1-1ZM4.5 11a1 1 0 0 1 1 1v0.5a1 1 0 1 1-2 0V12a1 1 0 0 1 1-1Zm11.1-5.6a1 1 0 0 1 1.4 0l0.4 0.4a1 1 0 1 1-1.4 1.4l-0.4-0.4a1 1 0 0 1 0-1.4Zm-9.6 9.6a1 1 0 0 1 1.4 0l0.4 0.4a1 1 0 1 1-1.4 1.4l-0.4-0.4a1 1 0 0 1 0-1.4Zm9.6 1.4a1 1 0 0 1 0-1.4l0.4-0.4a1 1 0 1 1 1.4 1.4l-0.4 0.4a1 1 0 0 1-1.4 0Zm-9.6-9.6a1 1 0 0 1 0-1.4l0.4-0.4a1 1 0 1 1 1.4 1.4l-0.4 0.4a1 1 0 0 1-1.4 0Z"/>
+                    </svg>
+                </span>
+                <span class="theme-icon theme-icon--moon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path d="M14.8 3.2a1 1 0 0 1 1.1 1.6 7.5 7.5 0 1 0 4.9 12.9 1 1 0 0 1 1.6 1.1A9.5 9.5 0 1 1 14.8 3.2Z"/>
+                    </svg>
+                </span>
+            </button>
+
+            <div class="lang-switch" aria-label="Language">
+            <button type="button" class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
+            <button type="button" class="lang-btn" data-lang="uk" onclick="setLanguage('uk')">UA</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <section class="hero">
+            <h1 id="title" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-title"
+                data-i18n="hero.title">AI video upscaling, right in your browser.</h1>
+            <p id="hero-text" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-subtitle"
+               data-i18n-html="hero.subtitle">
+                Upscale videos <a href="https://github.com/sb2702/websr" target="_blank">with AI</a> for free. No
+                installs, no sign-ups. Everything runs locally in your browser.
+            </p>
+            <div class="hero-note" x-show="$store.state === 'info'" data-i18n-html="hero.info"></div>
+        </section>
+
+        <div class="panel-spacer" x-show="!($store.state === 'init' || $store.state === 'unsupported')"></div>
+
+        <div id="unsupported-panel" class="panel panel--center"
+             x-show="$store.state === 'unsupported'">
+            <p class="panel-text">
+                <span data-i18n="unsupported.pre">Your browser does not support</span>
+                <span id="missing-component" x-text="$store.component" class="pill"></span>
+                <span data-i18n="unsupported.post">, a required browser feature for this tool.</span>
+                <br><br>
+                <span data-i18n="unsupported.try">Try the latest version of</span>
+                <img alt="Chrome" src="chrome.svg" width="20" height="20">
+                <span data-i18n="unsupported.chrome">Chrome</span>
+                <span data-i18n="unsupported.or">or</span>
+                <img alt="Edge" src="edge.svg" width="20" height="20">
+                <span data-i18n="unsupported.edge">Edge</span>
+                <span data-i18n="unsupported.device">on a laptop or desktop.</span>
+            </p>
+        </div>
+
+        <div class="panel-link" x-show="$store.state === 'unsupported'">
+            <a href="https://www.youtube.com/watch?v=hhweJlZsDFE" target="_blank" data-i18n="unsupported.link">For
+                reference, here's how it should work</a>
+        </div>
+
+        <div id="loading-panel" class="panel panel--center panel--tall" x-show="$store.state === 'loading'">
+            <img src="loading.svg" alt="Loading" class="loading-image">
+        </div>
+
+        <div id="error-panel" class="panel panel--center panel--tall" x-show="$store.state === 'error'">
+            <p class="panel-text">
+                <span data-i18n="error.prefix">An error occurred while processing the video:</span>
+                <span class="pill" x-text="$store.error"></span>
+            </p>
+        </div>
+
+        <div id="file-load-panel" class="panel panel--center panel--mid" x-show="$store.state === 'init'">
+            <p class="panel-title" data-i18n="file.choose_title">Choose a video to upscale</p>
+            <button type="button" class="action-btn action-btn--primary" id="input-button" onclick="chooseFile(this)"
+                    data-i18n="file.choose_button">Choose a video file</button>
+        </div>
+
+        <div id="start-panel" class="panel panel--tall"
+             x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete'">
+            <div id="image-compare-outer">
+                <div id="image-compare">
+                    <canvas id="original"></canvas>
+                    <canvas id="upscaled"></canvas>
+                </div>
+            </div>
+
+            <img src="full-screen.svg" alt="Full Screen" width="15" height="15" id="full-screen"
+                 onclick="fullScreenPreview()" x-show="$store.state === 'preview'" class="fullscreen-icon">
+
+            <div id="preview" x-show="$store.state === 'preview'">
+                <div class="preview-block">
+                    <div class="preview-line">
+                        <span data-i18n="preview.upscaling">Upscaling</span>
+                        <span x-text="$store.filename" class="pill"></span>
+                    </div>
+                    <div class="preview-line">
+                        <span data-i18n="preview.input_size">Input size:</span>
+                        <span class="pill"><span x-text="$store.width"></span>x<span x-text="$store.height"></span></span>
+                    </div>
+                    <div class="preview-line">
+                        <span data-i18n="preview.output_size">Output size:</span>
+                        <span class="pill"><span x-text="$store.width*2"></span>x<span x-text="$store.height*2"></span></span>
+                    </div>
+                </div>
+
+                <div id="settings" class="settings-panel">
+                    <div class="settings-row" data-i18n-attr="title" data-i18n="settings.tooltip">
+                        <div class="settings-label" data-i18n="settings.network">Upscaling network</div>
+                        <div class="settings-controls">
+                            <input type="radio" class="btn-check" name="options" id="option1" value="small"
+                                   onclick="switchNetworkSize(this);" autocomplete="off">
+                            <label class="action-btn action-btn--ghost" for="option1" data-i18n="settings.small">Small</label>
+
+                            <input type="radio" class="btn-check" name="options" id="option2" value="medium"
+                                   onclick="switchNetworkSize(this);" autocomplete="off" checked>
+                            <label class="action-btn action-btn--ghost" for="option2" data-i18n="settings.medium">Medium</label>
+
+                            <input type="radio" class="btn-check" name="options" id="option3" value="large"
+                                   onclick="switchNetworkSize(this);" autocomplete="off">
+                            <label class="action-btn action-btn--ghost" for="option3" data-i18n="settings.large">Large</label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="initRecording()"
+                        x-show="$store.target === 'writer'" data-i18n="action.choose_output">
+                    Choose output location
+                    <img src="folder.svg" alt="Choose a location to save the file to" width="12" height="12">
+                </button>
+
+                <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="initRecording()"
+                        x-show="$store.target === 'blob' || $store.target === 'image'" data-i18n="action.start_upscaling">
+                    Start upscaling
+                    <img src="play.svg" alt="Start upscaling your video" width="12" height="12">
+                </button>
+            </div>
+
+            <div id="info" x-show="$store.state === 'processing'">
+                <p class="processing-line">
+                    <span data-i18n="processing.prefix">Upscaling</span>
+                    <span x-text="$store.filename" class="pill"></span>.
+                    <span data-i18n="processing.eta">Estimated time left:</span>
+                    <span x-text="$store.eta"></span>
+                </p>
+
+                <div class="progress" id="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                         x-bind:style="{width: $store.progress + '%'}" x-bind:aria-valuenow="$store.progress"
+                         aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+
+            <p x-show="$store.state === 'complete'" class="completion-note" data-i18n="complete.note">
+                If you like the tool, please consider starring the project on GitHub.
+            </p>
+
+            <div id="download-link" x-show="$store.state === 'complete'">
+                <div class="save-note" x-show="$store.target=='writer'">
+                    <span data-i18n="complete.saved">Saved result to</span>
+                    <span x-text="$store.download_name" class="pill"></span>
+                </div>
+
+                <div class="actions-row">
+                    <button type="button" class="action-btn action-btn--ghost" onclick="location.reload();"
+                            data-i18n="complete.upscale_another">Upscale another
+                        <img src="refresh.svg" alt="Upscale another video" width="18" height="18">
+                    </button>
+
+                    <a x-bind:href="$store.download_url" x-bind:download="$store.download_name"
+                       x-show="$store.target=='blob' || $store.target=='image'" class="download-link">
+                        <button type="button" class="action-btn action-btn--primary" id="download"
+                                data-i18n="complete.download">Download
+                            <img src="download-icon.svg" width="18" height="18">
+                        </button>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="ad-frame">
+            <div class="ad-label" data-i18n="ads.label">Sponsored</div>
+            <div class="ad-placeholder" data-i18n="ads.placeholder">Ad space (Google AdSense)</div>
+        </div>
+
+        <footer id="footer" class="footer">
+            <div class="footer-left">
+                <span data-i18n="footer.copyright">© 2026</span>
+            </div>
+            <div class="footer-right"></div>
+        </footer>
+    </main>
+</div>
+</body>
+
+</html>
