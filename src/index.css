@@ -48,14 +48,100 @@ body {
 .page {
     min-height: 100vh;
     padding: 32px 24px 64px;
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 32px;
+}
+
+.content {
+    max-width: 980px;
+    width: 100%;
+    justify-self: center;
     display: flex;
     flex-direction: column;
-    gap: 36px;
+    gap: 28px;
+}
+
+.sidebar {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    height: fit-content;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sidebar-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-bottom: 12px;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sidebar-link {
+    text-decoration: none;
+    color: var(--muted);
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    font-weight: 600;
+}
+
+.sidebar-link.is-active {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+}
+
+[data-theme="dark"] .sidebar-link.is-active {
+    color: #0f0b08;
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+}
+
+.sidebar-brand .brand-mark {
+    width: 58px;
+    height: 58px;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+}
+
+.sidebar-brand .brand-name {
+    font-size: 1.3rem;
+}
+
+.sidebar-brand .brand-tagline {
+    font-size: 0.85rem;
+}
+
+.menu-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px 16px;
+    box-shadow: 0 16px 30px rgba(60, 32, 10, 0.12);
 }
 
 .topbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
@@ -76,9 +162,12 @@ body {
 .brand-mark {
     width: 56px;
     height: 56px;
+    aspect-ratio: 1 / 1;
+    display: block;
     border-radius: 18px;
     background: conic-gradient(from 120deg, #f5b183, #cc6b2c, #7b3a14, #cc6b2c);
     box-shadow: var(--shadow);
+    flex: 0 0 auto;
 }
 
 .brand-text {
@@ -183,7 +272,7 @@ body {
     font-size: 1.1rem;
     line-height: 1.6;
     color: var(--muted);
-    margin: 0;
+    margin: 0 0 22px;
 }
 
 .hero-subtitle a {
@@ -207,8 +296,8 @@ body {
 }
 
 .panel {
-    width: min(880px, 100%);
-    margin: 0 auto;
+    width: min(820px, 100%);
+    margin: 0;
     background: var(--surface);
     border-radius: 26px;
     border: 1px solid var(--border);
@@ -317,6 +406,14 @@ body {
     justify-content: center;
 }
 
+.preview-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
 .settings-panel {
     margin: 18px 0;
     padding: 16px;
@@ -372,8 +469,8 @@ body {
 }
 
 .ad-frame {
-    width: min(880px, 100%);
-    margin: 0 auto;
+    width: min(820px, 100%);
+    margin: 16px 0 0;
     padding: 18px 20px 22px;
     border-radius: 22px;
     border: 1px dashed var(--border);
@@ -395,12 +492,13 @@ body {
 }
 
 .footer {
-    width: min(880px, 100%);
-    margin: 10px auto 0;
+    width: min(820px, 100%);
+    margin: 0 auto;
     display: flex;
     justify-content: center;
+    flex-direction: column;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 14px;
     color: var(--muted);
     font-size: 0.9rem;
     text-align: center;
@@ -424,6 +522,7 @@ body {
     width: 100%;
     display: flex;
     justify-content: center;
+    margin-top: 26px;
 }
 
 .footer-right {
@@ -449,16 +548,6 @@ video {
     align-items: center;
 }
 
-#image-compare {
-    overflow: hidden;
-}
-
-#image-compare canvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-}
-
 .download-link {
     text-decoration: none;
 }
@@ -466,6 +555,24 @@ video {
 @media (max-width: 700px) {
     .page {
         padding: 20px 16px 48px;
+        grid-template-columns: 1fr;
+    }
+
+    .content {
+        max-width: 100%;
+    }
+
+    .sidebar {
+        position: static;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .sidebar-nav {
+        flex-direction: row;
+        gap: 8px;
     }
 
     .panel {

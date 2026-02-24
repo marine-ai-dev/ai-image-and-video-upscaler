@@ -82,6 +82,7 @@ declare global {
         showOpenFilePicker: (options?: any) => Promise<FileSystemFileHandle[]>;
         setLanguage: (lang: Lang) => void;
         toggleTheme: () => void;
+        setPage: (page: PageKey) => void;
     }
 }
 
@@ -122,6 +123,7 @@ const translations: Record<Lang, Record<string, string>> = {
         'settings.tooltip': 'Small is faster, Large is slower but gives the most quality improvement',
         'action.choose_output': 'Choose output location',
         'action.start_upscaling': 'Start upscaling',
+        'action.back': 'Back',
         'processing.prefix': 'Upscaling',
         'processing.eta': 'Estimated time left:',
         'complete.note': 'If you like the tool, please consider starring the project on GitHub.',
@@ -168,6 +170,7 @@ const translations: Record<Lang, Record<string, string>> = {
         'settings.tooltip': 'Мала — швидша, велика — повільніша, але з кращою якістю',
         'action.choose_output': 'Оберіть місце збереження',
         'action.start_upscaling': 'Почати апскейлінг',
+        'action.back': 'Назад',
         'processing.prefix': 'Апскейлінг',
         'processing.eta': 'Орієнтовний час:',
         'complete.note': 'Якщо вам сподобався інструмент, підтримайте проєкт зіркою на GitHub.',
@@ -186,6 +189,7 @@ const supportedLangs: Lang[] = ['en', 'uk'];
 let currentLang: Lang = 'en';
 type ThemeMode = 'light' | 'dark';
 let currentTheme: ThemeMode = 'light';
+type PageKey = 'home' | 'upscaler';
 
 document.addEventListener("DOMContentLoaded", index);
 
@@ -197,6 +201,7 @@ document.addEventListener("DOMContentLoaded", index);
 async function index(): Promise<void> {
     Alpine.store('state', 'init');
     Alpine.store('networkSizeLabel', 'Medium');
+    Alpine.store('page', 'upscaler');
 
     Alpine.start();
     document.body.style.display = "block";
@@ -216,6 +221,7 @@ async function index(): Promise<void> {
     window.chooseFile = chooseFile;
     window.switchNetworkSize = switchNetworkSize;
     window.initRecording = initRecording;
+    window.setPage = setPage;
 }
 
 /**
@@ -267,6 +273,12 @@ function setLanguage(lang: Lang): void {
 }
 
 window.setLanguage = setLanguage;
+
+function setPage(page: PageKey): void {
+    Alpine.store('page', page);
+}
+
+window.setPage = setPage;
 
 function initTheme(): void {
     const stored = localStorage.getItem('theme') as ThemeMode | null;

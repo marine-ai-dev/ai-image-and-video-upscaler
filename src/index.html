@@ -28,46 +28,60 @@
 
 <body x-data="{}" style="display: none;">
 <div class="page">
-    <header class="topbar">
-        <div class="brand">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
             <span class="brand-mark" aria-hidden="true"></span>
             <div class="brand-text">
                 <div class="brand-name" data-i18n="brand.name">Video Upscaler</div>
                 <div class="brand-tagline" data-i18n="brand.tagline">AI upscaling in your browser</div>
             </div>
         </div>
-        <div class="header-controls">
-            <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
-                <span class="theme-icon theme-icon--sun" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M12 4.5a1 1 0 0 1 1 1V7a1 1 0 1 1-2 0V5.5a1 1 0 0 1 1-1Zm0 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.5-3.5a1 1 0 0 1 1 1v0.5a1 1 0 1 1-2 0V12a1 1 0 0 1 1-1ZM4.5 11a1 1 0 0 1 1 1v0.5a1 1 0 1 1-2 0V12a1 1 0 0 1 1-1Zm11.1-5.6a1 1 0 0 1 1.4 0l0.4 0.4a1 1 0 1 1-1.4 1.4l-0.4-0.4a1 1 0 0 1 0-1.4Zm-9.6 9.6a1 1 0 0 1 1.4 0l0.4 0.4a1 1 0 1 1-1.4 1.4l-0.4-0.4a1 1 0 0 1 0-1.4Zm9.6 1.4a1 1 0 0 1 0-1.4l0.4-0.4a1 1 0 1 1 1.4 1.4l-0.4 0.4a1 1 0 0 1-1.4 0Zm-9.6-9.6a1 1 0 0 1 0-1.4l0.4-0.4a1 1 0 1 1 1.4 1.4l-0.4 0.4a1 1 0 0 1-1.4 0Z"/>
-                    </svg>
-                </span>
-                <span class="theme-icon theme-icon--moon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                        <path d="M14.8 3.2a1 1 0 0 1 1.1 1.6 7.5 7.5 0 1 0 4.9 12.9 1 1 0 0 1 1.6 1.1A9.5 9.5 0 1 1 14.8 3.2Z"/>
-                    </svg>
-                </span>
-            </button>
 
-            <div class="lang-switch" aria-label="Language">
-            <button type="button" class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
-            <button type="button" class="lang-btn" data-lang="uk" onclick="setLanguage('uk')">UA</button>
-            </div>
+        <div class="menu-card">
+            <div class="sidebar-title">Menu</div>
+            <nav class="sidebar-nav">
+                <a href="#" class="sidebar-link" x-bind:class="$store.page === 'home' ? 'is-active' : ''" onclick="setPage('home')">Home</a>
+                <a href="#" class="sidebar-link" x-bind:class="$store.page === 'upscaler' ? 'is-active' : ''" onclick="setPage('upscaler')">AI Upscaler</a>
+            </nav>
         </div>
-    </header>
+    </aside>
+    <div class="content">
+        <header class="topbar">
+            <div class="header-controls">
+                <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+                    <span class="theme-icon theme-icon--sun" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M12 4.5a1 1 0 0 1 1 1V7a1 1 0 1 1-2 0V5.5a1 1 0 0 1 1-1Zm0 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.5-3.5a1 1 0 0 1 1 1v0.5a1 1 0 1 1-2 0V12a1 1 0 0 1 1-1ZM4.5 11a1 1 0 0 1 1 1v0.5a1 1 0 1 1-2 0V12a1 1 0 0 1 1-1Zm11.1-5.6a1 1 0 0 1 1.4 0l0.4 0.4a1 1 0 1 1-1.4 1.4l-0.4-0.4a1 1 0 0 1 0-1.4Zm-9.6 9.6a1 1 0 0 1 1.4 0l0.4 0.4a1 1 0 1 1-1.4 1.4l-0.4-0.4a1 1 0 0 1 0-1.4Zm9.6 1.4a1 1 0 0 1 0-1.4l0.4-0.4a1 1 0 1 1 1.4 1.4l-0.4 0.4a1 1 0 0 1-1.4 0Zm-9.6-9.6a1 1 0 0 1 0-1.4l0.4-0.4a1 1 0 1 1 1.4 1.4l-0.4 0.4a1 1 0 0 1-1.4 0Z"/>
+                        </svg>
+                    </span>
+                    <span class="theme-icon theme-icon--moon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M14.8 3.2a1 1 0 0 1 1.1 1.6 7.5 7.5 0 1 0 4.9 12.9 1 1 0 0 1 1.6 1.1A9.5 9.5 0 1 1 14.8 3.2Z"/>
+                        </svg>
+                    </span>
+                </button>
 
-    <main class="main">
-        <section class="hero">
-            <h1 id="title" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-title"
-                data-i18n="hero.title">AI video upscaling, right in your browser.</h1>
-            <p id="hero-text" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-subtitle"
-               data-i18n-html="hero.subtitle">
-                Upscale videos <a href="https://github.com/sb2702/websr" target="_blank">with AI</a> for free. No
-                installs, no sign-ups. Everything runs locally in your browser.
-            </p>
-            <div class="hero-note" x-show="$store.state === 'info'" data-i18n-html="hero.info"></div>
-        </section>
+                <div class="lang-switch" aria-label="Language">
+                <button type="button" class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
+                <button type="button" class="lang-btn" data-lang="uk" onclick="setLanguage('uk')">UA</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main">
+            <section x-show="$store.page === 'home'"></section>
+
+            <section x-show="$store.page === 'upscaler'">
+            <section class="hero">
+                <h1 id="title" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-title"
+                    data-i18n="hero.title">AI video upscaling, right in your browser.</h1>
+                <p id="hero-text" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-subtitle"
+                   data-i18n-html="hero.subtitle">
+                    Upscale videos <a href="https://github.com/sb2702/websr" target="_blank">with AI</a> for free. No
+                    installs, no sign-ups. Everything runs locally in your browser.
+                </p>
+                <div class="hero-note" x-show="$store.state === 'info'" data-i18n-html="hero.info"></div>
+            </section>
 
         <div class="panel-spacer" x-show="!($store.state === 'init' || $store.state === 'unsupported')"></div>
 
@@ -108,6 +122,11 @@
             <p class="panel-title" data-i18n="file.choose_title">Choose a video to upscale</p>
             <button type="button" class="action-btn action-btn--primary" id="input-button" onclick="chooseFile(this)"
                     data-i18n="file.choose_button">Choose a video file</button>
+        </div>
+
+        <div class="ad-frame" x-show="$store.state === 'init'">
+            <div class="ad-label" data-i18n="ads.label">Sponsored</div>
+            <div class="ad-placeholder" data-i18n="ads.placeholder">Ad space (Google AdSense)</div>
         </div>
 
         <div id="start-panel" class="panel panel--tall"
@@ -157,17 +176,24 @@
                     </div>
                 </div>
 
-                <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="initRecording()"
-                        x-show="$store.target === 'writer'" data-i18n="action.choose_output">
-                    Choose output location
-                    <img src="folder.svg" alt="Choose a location to save the file to" width="12" height="12">
-                </button>
+                <div class="preview-actions">
+                    <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="location.reload();"
+                            data-i18n="action.back">
+                        Back
+                    </button>
 
-                <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="initRecording()"
-                        x-show="$store.target === 'blob' || $store.target === 'image'" data-i18n="action.start_upscaling">
-                    Start upscaling
-                    <img src="play.svg" alt="Start upscaling your video" width="12" height="12">
-                </button>
+                    <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="initRecording()"
+                            x-show="$store.target === 'writer'" data-i18n="action.choose_output">
+                        Choose output location
+                        <img src="folder.svg" alt="Choose a location to save the file to" width="12" height="12">
+                    </button>
+
+                    <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="initRecording()"
+                            x-show="$store.target === 'blob' || $store.target === 'image'" data-i18n="action.start_upscaling">
+                        Start upscaling
+                        <img src="play.svg" alt="Start upscaling your video" width="12" height="12">
+                    </button>
+                </div>
             </div>
 
             <div id="info" x-show="$store.state === 'processing'">
@@ -212,18 +238,11 @@
             </div>
         </div>
 
-        <div class="ad-frame">
-            <div class="ad-label" data-i18n="ads.label">Sponsored</div>
-            <div class="ad-placeholder" data-i18n="ads.placeholder">Ad space (Google AdSense)</div>
-        </div>
+            </section>
 
-        <footer id="footer" class="footer">
-            <div class="footer-left">
-                <span data-i18n="footer.copyright">© 2026</span>
-            </div>
-            <div class="footer-right"></div>
-        </footer>
-    </main>
+        <footer id="footer" class="footer"></footer>
+        </main>
+    </div>
 </div>
 </body>
 
