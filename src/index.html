@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=Rubik:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" href="logo.svg">
+    <link rel="icon" type="image/png" href="marineai-favicon.png">
 
     <title data-i18n="meta.title">AI Video Upscaler</title>
 </head>
@@ -32,7 +32,7 @@
         <div class="sidebar-brand">
             <span class="brand-mark" aria-hidden="true"></span>
             <div class="brand-text">
-                <div class="brand-name" data-i18n="brand.name">Video Upscaler</div>
+                <div class="brand-name" data-i18n="brand.name">Image Editor by MarineAI</div>
                 <div class="brand-tagline" data-i18n="brand.tagline">AI upscaling in your browser</div>
             </div>
         </div>
@@ -42,6 +42,7 @@
             <nav class="sidebar-nav">
                 <a href="#" class="sidebar-link" x-bind:class="$store.page === 'home' ? 'is-active' : ''" onclick="setPage('home')">Home</a>
                 <a href="#" class="sidebar-link" x-bind:class="$store.page === 'upscaler' ? 'is-active' : ''" onclick="setPage('upscaler')">AI Upscaler</a>
+                <a href="#" class="sidebar-link" x-bind:class="$store.page === 'filters' ? 'is-active' : ''" onclick="setPage('filters')">Edit images</a>
             </nav>
         </div>
     </aside>
@@ -70,6 +71,15 @@
 
         <main class="main">
             <section x-show="$store.page === 'home'"></section>
+            <section x-show="$store.page === 'filters'" class="edit-page">
+                <section class="hero">
+                    <h1 class="hero-title" data-i18n="edit.title">Edit images</h1>
+                    <p class="hero-subtitle" data-i18n="edit.subtitle">Full editor with crop, curves, filters, blur, perspective and more.</p>
+                </section>
+                <div class="panel edit-panel">
+                    <iframe class="edit-iframe" src="edit-images/index.html" title="Edit images"></iframe>
+                </div>
+            </section>
 
             <section x-show="$store.page === 'upscaler'">
             <section class="hero">
@@ -120,8 +130,25 @@
 
         <div id="file-load-panel" class="panel panel--center panel--mid" x-show="$store.state === 'init'">
             <p class="panel-title" data-i18n="file.choose_title">Choose a video to upscale</p>
-            <button type="button" class="action-btn action-btn--primary" id="input-button" onclick="chooseFile(this)"
-                    data-i18n="file.choose_button">Choose a video file</button>
+
+            <div class="input-modes">
+                <button type="button" class="action-btn action-btn--primary" id="input-button" onclick="chooseFile(this)"
+                        data-i18n="file.choose_button">Choose a file</button>
+                <button type="button" class="action-btn action-btn--ghost" onclick="chooseFiles()"
+                        data-i18n="input.multiple">Multiple files</button>
+                <button type="button" class="action-btn action-btn--ghost" onclick="chooseFolder()"
+                        data-i18n="input.folder">Folder</button>
+            </div>
+
+            <label class="checkbox-line">
+                <input type="checkbox" x-bind:checked="$store.includeSubfolders"
+                       onchange="setIncludeSubfolders(this.checked)">
+                <span data-i18n="input.include_subfolders">Include subfolders</span>
+            </label>
+
+            <p class="panel-hint" data-i18n="input.hint">
+                Supported: PNG, JPG, WebP images and MP4/MOV video.
+            </p>
         </div>
 
         <div class="ad-frame" x-show="$store.state === 'init'">
@@ -153,8 +180,58 @@
                     </div>
                     <div class="preview-line">
                         <span data-i18n="preview.output_size">Output size:</span>
-                        <span class="pill"><span x-text="$store.width*2"></span>x<span x-text="$store.height*2"></span></span>
+                        <span class="pill" x-text="$store.plan.final"></span>
                     </div>
+                </div>
+
+                <div class="settings-panel">
+                    <div class="settings-row">
+                        <div class="settings-label" data-i18n="upscale.mode">Upscale mode</div>
+                        <div class="settings-controls">
+                            <button type="button" class="action-btn action-btn--ghost"
+                                    x-bind:class="$store.mode === 'passes' ? 'is-active' : ''"
+                                    onclick="setUpscaleMode('passes')" data-i18n="upscale.mode_passes">Number of passes</button>
+                            <button type="button" class="action-btn action-btn--ghost"
+                                    x-bind:class="$store.mode === 'target' ? 'is-active' : ''"
+                                    onclick="setUpscaleMode('target')" data-i18n="upscale.mode_target">Target resolution</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-row" x-show="$store.mode === 'passes'">
+                        <div class="settings-label" data-i18n="upscale.passes">Passes</div>
+                        <div class="settings-controls">
+                            <template x-for="n in $store.maxPasses" :key="n">
+                                <button type="button" class="action-btn action-btn--ghost pass-btn"
+                                        x-bind:class="$store.passes === n ? 'is-active' : ''"
+                                        x-text="n" x-on:click="setPasses(n)"></button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="settings-row" x-show="$store.mode === 'target'">
+                        <div class="settings-label" data-i18n="upscale.target">Target long edge (px)</div>
+                        <div class="settings-controls">
+                            <input type="number" class="number-input" min="16" step="16"
+                                   x-bind:value="$store.targetLongEdge"
+                                   onchange="setTargetResolution(this.value)">
+                            <span class="muted" data-i18n="upscale.target_hint">Aspect ratio is always preserved.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="plan-block">
+                    <div class="plan-title" data-i18n="upscale.progression">Expected progression</div>
+                    <template x-for="line in $store.plan.progression" :key="line">
+                        <div class="plan-line" x-text="line"></div>
+                    </template>
+                    <div class="plan-final">
+                        <span data-i18n="upscale.final">Final expected resolution:</span>
+                        <span class="pill" x-text="$store.plan.final"></span>
+                    </div>
+                    <div class="plan-note" x-show="$store.plan.note" x-text="$store.plan.note"></div>
+                    <div class="plan-warning" x-show="$store.plan.safetyLevel !== 'ok'"
+                         x-bind:class="$store.plan.safetyLevel === 'block' ? 'is-block' : ''"
+                         x-text="$store.plan.safetyMessage"></div>
                 </div>
 
                 <div id="settings" class="settings-panel">
@@ -189,6 +266,7 @@
                     </button>
 
                     <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="initRecording()"
+                            x-bind:disabled="$store.plan.safetyLevel === 'block'"
                             x-show="$store.target === 'blob' || $store.target === 'image'" data-i18n="action.start_upscaling">
                         Start upscaling
                         <img src="play.svg" alt="Start upscaling your video" width="12" height="12">
@@ -202,6 +280,10 @@
                     <span x-text="$store.filename" class="pill"></span>.
                     <span data-i18n="processing.eta">Estimated time left:</span>
                     <span x-text="$store.eta"></span>
+                </p>
+
+                <p class="processing-line" x-show="$store.passStatus">
+                    <span class="pill" x-text="$store.passStatus"></span>
                 </p>
 
                 <div class="progress" id="progress">
@@ -236,6 +318,218 @@
                     </a>
                 </div>
             </div>
+        </div>
+
+        <div id="batch-panel" class="panel" x-show="$store.state === 'batch'">
+            <div class="batch-header">
+                <div>
+                    <div class="panel-title" data-i18n="batch.title">Batch queue</div>
+                    <div class="batch-counts">
+                        <span data-i18n="batch.detected">Files detected:</span>
+                        <span class="pill" x-text="$store.batch.items.length"></span>
+                        <span data-i18n="batch.images">Images:</span>
+                        <span class="pill" x-text="$store.batch.counts.images"></span>
+                        <span data-i18n="batch.videos">Videos:</span>
+                        <span class="pill" x-text="$store.batch.counts.videos"></span>
+                        <span x-show="$store.batch.counts.unsupported">
+                            <span data-i18n="batch.ignored">Ignored:</span>
+                            <span class="pill" x-text="$store.batch.counts.unsupported"></span>
+                        </span>
+                    </div>
+                </div>
+                <button type="button" class="action-btn action-btn--ghost" onclick="resetBatch()"
+                        x-bind:disabled="$store.batch.running" data-i18n="batch.start_over">Start over</button>
+            </div>
+
+            <details class="batch-skipped" x-show="$store.batch.skipped.length">
+                <summary data-i18n="batch.skipped_title">Ignored files</summary>
+                <template x-for="item in $store.batch.skipped" :key="item.name">
+                    <div class="batch-skipped-row">
+                        <span x-text="item.name"></span>
+                        <span class="muted" x-text="item.reason"></span>
+                    </div>
+                </template>
+            </details>
+
+            <div class="settings-panel">
+                <div class="settings-row">
+                    <div class="settings-label" data-i18n="batch.apply_all">Apply to all</div>
+                    <div class="settings-controls">
+                        <button type="button" class="action-btn action-btn--ghost"
+                                x-bind:class="$store.batch.global.mode === 'passes' ? 'is-active' : ''"
+                                onclick="setBatchMode('passes')" data-i18n="upscale.mode_passes">Number of passes</button>
+                        <button type="button" class="action-btn action-btn--ghost"
+                                x-bind:class="$store.batch.global.mode === 'target' ? 'is-active' : ''"
+                                onclick="setBatchMode('target')" data-i18n="upscale.mode_target">Target resolution</button>
+                    </div>
+                </div>
+
+                <div class="settings-row" x-show="$store.batch.global.mode === 'passes'">
+                    <div class="settings-label" data-i18n="upscale.passes">Passes</div>
+                    <div class="settings-controls">
+                        <template x-for="n in $store.maxPasses" :key="n">
+                            <button type="button" class="action-btn action-btn--ghost pass-btn"
+                                    x-bind:class="$store.batch.global.passes === n ? 'is-active' : ''"
+                                    x-text="n" x-on:click="setBatchPasses(n)"></button>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="settings-row" x-show="$store.batch.global.mode === 'target'">
+                    <div class="settings-label" data-i18n="upscale.target">Target long edge (px)</div>
+                    <div class="settings-controls">
+                        <input type="number" class="number-input" min="16" step="16"
+                               x-bind:value="$store.batch.global.targetLongEdge"
+                               onchange="setBatchTarget(this.value)">
+                    </div>
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-label" data-i18n="batch.output">Output folder</div>
+                    <div class="settings-controls">
+                        <span class="pill" x-text="$store.batch.outputLabel || 'browser downloads'"></span>
+                        <button type="button" class="action-btn action-btn--ghost" onclick="chooseOutputFolder()"
+                                x-bind:disabled="$store.batch.running" data-i18n="batch.choose_output">Choose…</button>
+                    </div>
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-label" data-i18n="batch.pdf">PDF</div>
+                    <div class="settings-controls">
+                        <label class="checkbox-line">
+                            <input type="checkbox" x-bind:checked="$store.batch.options.createPdf"
+                                   onchange="setCreatePdf(this.checked)">
+                            <span data-i18n="batch.pdf_create">Create PDF from processed images</span>
+                        </label>
+                        <select class="number-input" x-show="$store.batch.options.createPdf"
+                                onchange="setPdfQuality(this.value)">
+                            <option value="maximum" data-i18n="batch.pdf_max">Maximum</option>
+                            <option value="balanced" data-i18n="batch.pdf_balanced">Balanced</option>
+                        </select>
+                        <input type="text" class="text-input" x-show="$store.batch.options.createPdf"
+                               x-bind:value="$store.batch.options.pdfName"
+                               placeholder="filename.pdf" onchange="setPdfName(this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="plan-warning" x-show="$store.batch.safety.level !== 'ok'"
+                 x-bind:class="$store.batch.safety.level === 'block' ? 'is-block' : ''">
+                <template x-for="reason in $store.batch.safety.reasons" :key="reason">
+                    <div x-text="reason"></div>
+                </template>
+            </div>
+
+            <div class="batch-table-wrap">
+                <table class="batch-table">
+                    <thead>
+                    <tr>
+                        <th data-i18n="batch.col_file">File</th>
+                        <th data-i18n="batch.col_type">Type</th>
+                        <th data-i18n="batch.col_source">Original</th>
+                        <th data-i18n="batch.col_passes">Passes</th>
+                        <th data-i18n="batch.col_expected">Expected output</th>
+                        <th data-i18n="batch.col_status">Status</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <template x-for="item in $store.batch.items" :key="item.id">
+                        <tr x-bind:class="item.blocked ? 'is-blocked' : ''">
+                            <td x-text="item.path"></td>
+                            <td x-text="item.kindLabel"></td>
+                            <td x-text="item.source"></td>
+                            <td>
+                                <select class="mini-select" x-bind:disabled="$store.batch.running"
+                                        x-on:change="setItemOverride(item.id, $event.target.value)">
+                                    <option value="global" x-bind:selected="item.overrideValue === 'global'"
+                                            x-text="'Global (' + item.settingLabel + ')'"></option>
+                                    <template x-for="n in $store.maxPasses" :key="n">
+                                        <option x-bind:value="n" x-bind:selected="item.overrideValue == n"
+                                                x-text="n + ' pass'"></option>
+                                    </template>
+                                </select>
+                            </td>
+                            <td x-text="item.expected"></td>
+                            <td>
+                                <span class="status-pill" x-bind:class="'status--' + item.status"
+                                      x-text="item.statusLabel"></span>
+                                <div class="muted error-text" x-show="item.error" x-text="item.error"></div>
+                            </td>
+                            <td>
+                                <button type="button" class="mini-btn" x-bind:disabled="$store.batch.running"
+                                        x-on:click="removeBatchItem(item.id)">✕</button>
+                            </td>
+                        </tr>
+                    </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="batch-progress" x-show="$store.batch.running">
+                <div class="processing-line">
+                    <span x-text="$store.batch.progressText"></span>
+                    <span class="pill" x-show="$store.batch.currentName" x-text="$store.batch.currentName"></span>
+                    <span class="pill" x-show="$store.batch.currentPass" x-text="$store.batch.currentPass"></span>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                         x-bind:style="{width: ($store.batch.items.length ? ($store.batch.completed / $store.batch.items.length * 100) : 0) + '%'}"></div>
+                </div>
+            </div>
+
+            <div class="batch-summary" x-show="$store.batch.summary">
+                <template x-if="$store.batch.summary">
+                    <div>
+                        <div class="plan-final">
+                            <span x-text="$store.batch.summary.total"></span>
+                            <span data-i18n="batch.files_processed">files processed</span>
+                            —
+                            <span x-text="$store.batch.summary.successful"></span>
+                            <span data-i18n="batch.successful">successful</span>,
+                            <span x-text="$store.batch.summary.failed"></span>
+                            <span data-i18n="batch.failed">failed</span>
+                            <span x-show="$store.batch.summary.cancelled">,
+                                <span x-text="$store.batch.summary.cancelled"></span>
+                                <span data-i18n="batch.cancelled">cancelled</span>
+                            </span>
+                        </div>
+                        <div class="plan-line">
+                            <span data-i18n="batch.saved_to">Saved to:</span>
+                            <span class="pill" x-text="$store.batch.summary.outputLocation"></span>
+                        </div>
+                        <div class="plan-line" x-show="$store.batch.summary.pdfName">
+                            <span data-i18n="batch.pdf_created">PDF:</span>
+                            <span class="pill" x-text="$store.batch.summary.pdfName"></span>
+                        </div>
+                        <template x-for="note in $store.batch.summary.pdfNotes" :key="note">
+                            <div class="plan-note" x-text="note"></div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+
+            <details class="batch-skipped" x-show="$store.batch.log.length">
+                <summary data-i18n="batch.log">Processing log</summary>
+                <template x-for="line in $store.batch.log" :key="line">
+                    <div class="batch-skipped-row"><span x-text="line"></span></div>
+                </template>
+            </details>
+
+            <div class="preview-actions">
+                <button type="button" class="action-btn action-btn--primary action-btn--wide"
+                        onclick="startBatch()"
+                        x-bind:disabled="$store.batch.running || !$store.batch.items.length || $store.batch.safety.level === 'block'"
+                        data-i18n="batch.process">PROCESS BATCH</button>
+
+                <button type="button" class="action-btn action-btn--ghost action-btn--wide" onclick="cancelBatch()"
+                        x-show="$store.batch.running" data-i18n="batch.cancel">Cancel batch</button>
+            </div>
+        </div>
+
+        <div class="ad-frame" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete'"
+            <div class="ad-label" data-i18n="ads.label">Sponsored</div>
+            <div class="ad-placeholder" data-i18n="ads.placeholder">Ad space (Google AdSense)</div>
         </div>
 
             </section>

@@ -414,6 +414,24 @@ body {
     flex-wrap: wrap;
 }
 
+.hidden-input {
+    display: none;
+}
+
+.edit-panel {
+    display: flex;
+    padding: 0;
+    overflow: hidden;
+}
+
+.edit-iframe {
+    width: 100%;
+    min-height: 920px;
+    border: 0;
+    background: transparent;
+    display: block;
+}
+
 .settings-panel {
     margin: 18px 0;
     padding: 16px;
@@ -575,6 +593,10 @@ video {
         gap: 8px;
     }
 
+    .edit-iframe {
+        min-height: 840px;
+    }
+
     .panel {
         padding: 18px;
     }
@@ -592,4 +614,274 @@ video {
         right: 18px;
         top: 18px;
     }
+}
+
+/* ===================== Multi-pass & batch UI ===================== */
+
+.input-modes {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.panel-hint {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.checkbox-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    margin-top: 12px;
+}
+
+.action-btn.is-active {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+}
+
+[data-theme="dark"] .action-btn.is-active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #17110c;
+}
+
+.action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.pass-btn {
+    min-width: 46px;
+    justify-content: center;
+}
+
+.number-input,
+.text-input,
+.mini-select {
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+}
+
+.number-input {
+    width: 130px;
+}
+
+.text-input {
+    width: 210px;
+}
+
+.muted {
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+/* --- Expected progression --- */
+
+.plan-block {
+    margin: 16px 0;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+}
+
+.plan-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.plan-line {
+    color: var(--muted);
+    font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace;
+    font-size: 0.92rem;
+    padding: 2px 0;
+}
+
+.plan-final {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-weight: 600;
+}
+
+.plan-note {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.plan-warning {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--accent-soft);
+    background: var(--accent-soft);
+    color: var(--ink);
+    font-size: 0.9rem;
+}
+
+.plan-warning.is-block {
+    border-color: var(--accent-strong);
+    background: transparent;
+    color: var(--accent-strong);
+    font-weight: 600;
+}
+
+/* --- Batch queue --- */
+
+.batch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.batch-counts {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--muted);
+    margin-top: 8px;
+}
+
+.batch-skipped {
+    margin: 12px 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.batch-skipped summary {
+    cursor: pointer;
+    padding: 6px 0;
+}
+
+.batch-skipped-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+    font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace;
+    font-size: 0.85rem;
+}
+
+.batch-table-wrap {
+    margin: 16px 0;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.batch-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.batch-table th,
+.batch-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.batch-table th {
+    background: var(--surface-strong);
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.batch-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.batch-table tr.is-blocked {
+    background: var(--accent-soft);
+}
+
+.status-pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--surface-strong);
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.status--processing {
+    background: var(--accent);
+    color: #fff;
+}
+
+.status--complete {
+    background: #2f7d4f;
+    color: #fff;
+}
+
+.status--failed {
+    background: #a33224;
+    color: #fff;
+}
+
+.status--cancelled,
+.status--skipped {
+    background: var(--border);
+    color: var(--ink);
+}
+
+.error-text {
+    max-width: 260px;
+    white-space: normal;
+}
+
+.mini-btn {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 4px 9px;
+    cursor: pointer;
+}
+
+.mini-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.batch-progress {
+    margin: 16px 0;
+}
+
+.batch-summary {
+    margin: 16px 0;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+}
+
+/* Keep pills/inputs vertically centred next to buttons in a settings row */
+.settings-controls {
+    align-items: center;
+}
+
+.settings-controls .checkbox-line {
+    margin-top: 0;
 }

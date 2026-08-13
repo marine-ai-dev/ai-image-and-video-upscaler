@@ -8,12 +8,22 @@ const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 
+// The pipeline test page is a development tool: it is only bundled when
+// explicitly requested (INCLUDE_TEST_HARNESS=1 npm run serve) and never ships
+// in a normal build.
+const includeTestHarness = !!process.env.INCLUDE_TEST_HARNESS;
+
 module.exports = {
-    entry: [ "./src/index.ts", './src/worker.ts'],
+    entry: includeTestHarness
+        ? {
+            main: ["./src/index.ts", './src/worker.ts'],
+            harness: './src/test-harness/index.ts'
+        }
+        : [ "./src/index.ts", './src/worker.ts'],
     output: {
         libraryExport: "default",
         path: path.resolve(__dirname, './dist'),
-        filename: "main.js"
+        filename: includeTestHarness ? "[name].js" : "main.js"
     },
     module: {
 
@@ -46,8 +56,25 @@ module.exports = {
     plugins: [
 
         new HtmlWebpackPlugin({
-            template: 'src/index.html'
+            template: 'src/index.html',
+            ...(includeTestHarness ? { chunks: ['main'] } : {})
         }),
+
+        ...(includeTestHarness ? [
+            new HtmlWebpackPlugin({
+                template: 'src/test-harness/index.html',
+                filename: 'test-harness.html',
+                chunks: ['harness']
+            }),
+            new CopyWebpackPlugin({
+                patterns: [{
+                    context: path.resolve(__dirname, 'src/test-media'),
+                    from: '**/*',
+                    to: 'test-media/[path][name][ext]',
+                    globOptions: { dot: true }
+                }]
+            })
+        ] : []),
 
         new CleanWebpackPlugin({
             cleanStaleWebpackAssets: false
@@ -57,6 +84,11 @@ module.exports = {
                 { from: "src/*.js", to: path.basename('[name].js') },
                 { from: "src/img/*.svg", to: path.basename('[name].svg') },
                 { from: "src/img/*.png", to: path.basename('[name].png') },
+                {
+                    context: "src/edit-images-app",
+                    from: "**/*",
+                    to: "edit-images/[path][name][ext]"
+                },
 
             ]
         })
