@@ -8,6 +8,28 @@ installs — your files never leave your device. Powered by WebGPU and the
 
 ---
 
+## 📸 Screenshots
+
+### 1️⃣ Number of passes
+
+Pick 1–4 passes and see the exact per-pass progression before anything runs. Here a
+1103 × 1426 worksheet becomes 4412 × 5704 in two native 2× passes:
+
+![Number of passes mode — a 1103x1426 image projected through two passes to 4412x5704, with the expected progression and a working-memory warning](docs/screenshots/ui-passes.png)
+
+### 2️⃣ Target resolution
+
+Or just say how big you want it. The app picks the fewest native passes that reach your
+target and tells you the real result instead of silently resampling — here 4096 px was
+requested and 4220 × 5964 is what the model actually produces:
+
+![Target resolution mode — 4096px requested, native AI result 4220x5964, aspect ratio preserved](docs/screenshots/ui-target-resolution.png)
+
+Note the honest reporting in both: **pixel dimensions and memory cost**, never claims like
+"true 4K quality".
+
+---
+
 ## 🙏 Acknowledgements
 
 This project is built on the excellent open-source work of
@@ -25,6 +47,7 @@ a multi-pass pipeline, batch/folder processing and PDF export on top of it. Huge
 
 ## 📑 Contents
 
+* [Screenshots](#-screenshots)
 * [Quick start](#-quick-start)
 * [Multi-pass upscale](#-multi-pass-upscale)
 * [Batch processing](#-batch-processing)
