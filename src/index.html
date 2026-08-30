@@ -1,55 +1,62 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<%= locale %>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <meta name="description" data-i18n="meta.description" data-i18n-attr="content"
-          content="Browser-only AI video upscaler. Free, fast, no installs. Your video stays on your device.">
-    <meta property="og:title" data-i18n="meta.og_title" data-i18n-attr="content" content="AI Video Upscaler">
-    <meta property="og:description" data-i18n="meta.og_description" data-i18n-attr="content"
-          content="Browser-only AI video upscaler. Free, fast, no installs. Your video stays on your device.">
-    <meta property="og:image" content="hero-screenshot-anime4k-small.png">
+    <meta name="description" content="<%= t('meta.description') %>">
+    <meta property="og:title" content="<%= t('meta.og_title') %>">
+    <meta property="og:description" content="<%= t('meta.og_description') %>">
+    <meta property="og:image" content="/logo.png">
     <meta property="og:type" content="website">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta property="twitter:title" data-i18n="meta.twitter_title" data-i18n-attr="content" content="AI Video Upscaler">
-    <meta property="twitter:description" data-i18n="meta.twitter_description" data-i18n-attr="content"
-          content="Browser-only AI video upscaler. Free, fast, no installs. Your video stays on your device.">
-    <meta property="twitter:image" content="hero-screenshot-anime4k-small.png">
+    <meta property="og:locale" content="<%= ogLocale %>">
+    <meta name="twitter:card" content="summary">
+    <meta property="twitter:title" content="<%= t('meta.twitter_title') %>">
+    <meta property="twitter:description" content="<%= t('meta.twitter_description') %>">
+    <meta property="twitter:image" content="/logo.png">
+    <meta name="theme-color" content="#cc6b2c">
+
+    <link rel="alternate" hreflang="en" href="/en/">
+    <link rel="alternate" hreflang="uk" href="/uk/">
+    <link rel="alternate" hreflang="x-default" href="/en/">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=Rubik:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="marineai-favicon.png">
 
-    <title data-i18n="meta.title">AI Video Upscaler</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+
+    <title><%= t('meta.title') %></title>
 </head>
 
 <body x-data="{}" style="display: none;">
 <div class="page">
     <aside class="sidebar">
         <div class="sidebar-brand">
-            <span class="brand-mark" aria-hidden="true"></span>
+            <img class="brand-logo" src="/logo.png" alt="" width="44" height="44">
             <div class="brand-text">
-                <div class="brand-name" data-i18n="brand.name">Image Editor by MarineAI</div>
-                <div class="brand-tagline" data-i18n="brand.tagline">AI upscaling in your browser</div>
+                <div class="brand-name"><%= t('brand.name') %></div>
+                <div class="brand-tagline"><%= t('brand.tagline') %></div>
             </div>
         </div>
 
         <div class="menu-card">
-            <div class="sidebar-title">Menu</div>
+            <div class="sidebar-title"><%= t('nav.menu') %></div>
             <nav class="sidebar-nav">
-                <a href="#" class="sidebar-link" x-bind:class="$store.page === 'home' ? 'is-active' : ''" onclick="setPage('home')">Home</a>
-                <a href="#" class="sidebar-link" x-bind:class="$store.page === 'upscaler' ? 'is-active' : ''" onclick="setPage('upscaler')">AI Upscaler</a>
-                <a href="#" class="sidebar-link" x-bind:class="$store.page === 'filters' ? 'is-active' : ''" onclick="setPage('filters')">Edit images</a>
+                <a href="#" class="sidebar-link" x-bind:class="$store.page === 'home' ? 'is-active' : ''" onclick="setPage('home'); return false;"><%= t('nav.home') %></a>
+                <a href="#" class="sidebar-link" x-bind:class="$store.page === 'upscaler' ? 'is-active' : ''" onclick="setPage('upscaler'); return false;"><%= t('nav.upscaler') %></a>
+                <a href="#" class="sidebar-link" x-bind:class="$store.page === 'filters' ? 'is-active' : ''" onclick="setPage('filters'); return false;"><%= t('nav.editor') %></a>
             </nav>
         </div>
     </aside>
     <div class="content">
         <header class="topbar">
             <div class="header-controls">
-                <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+                <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="<%= t('nav.theme_toggle') %>" title="<%= t('nav.theme_toggle') %>">
                     <span class="theme-icon theme-icon--sun" aria-hidden="true">
                         <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                             <path d="M12 4.5a1 1 0 0 1 1 1V7a1 1 0 1 1-2 0V5.5a1 1 0 0 1 1-1Zm0 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.5-3.5a1 1 0 0 1 1 1v0.5a1 1 0 1 1-2 0V12a1 1 0 0 1 1-1ZM4.5 11a1 1 0 0 1 1 1v0.5a1 1 0 1 1-2 0V12a1 1 0 0 1 1-1Zm11.1-5.6a1 1 0 0 1 1.4 0l0.4 0.4a1 1 0 1 1-1.4 1.4l-0.4-0.4a1 1 0 0 1 0-1.4Zm-9.6 9.6a1 1 0 0 1 1.4 0l0.4 0.4a1 1 0 1 1-1.4 1.4l-0.4-0.4a1 1 0 0 1 0-1.4Zm9.6 1.4a1 1 0 0 1 0-1.4l0.4-0.4a1 1 0 1 1 1.4 1.4l-0.4 0.4a1 1 0 0 1-1.4 0Zm-9.6-9.6a1 1 0 0 1 0-1.4l0.4-0.4a1 1 0 1 1 1.4 1.4l-0.4 0.4a1 1 0 0 1-1.4 0Z"/>
@@ -62,35 +69,49 @@
                     </span>
                 </button>
 
-                <div class="lang-switch" aria-label="Language">
-                <button type="button" class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
-                <button type="button" class="lang-btn" data-lang="uk" onclick="setLanguage('uk')">UA</button>
+                <div class="lang-switch" role="group" aria-label="<%= t('nav.language') %>">
+                <a class="lang-btn<%= locale === 'en' ? ' is-active' : '' %>" hreflang="en" lang="en" href="/en/" aria-label="<%= t('nav.language_en') %>" onclick="rememberLocale('en')">EN</a>
+                <a class="lang-btn<%= locale === 'uk' ? ' is-active' : '' %>" hreflang="uk" lang="uk" href="/uk/" aria-label="<%= t('nav.language_uk') %>" onclick="rememberLocale('uk')">UA</a>
                 </div>
             </div>
         </header>
 
         <main class="main">
-            <section x-show="$store.page === 'home'"></section>
+            <section x-show="$store.page === 'home'" class="home-page">
+                <section class="hero">
+                    <h1 class="hero-title"><%= t('home.title') %></h1>
+                    <p class="hero-subtitle"><%= t('home.subtitle') %></p>
+                    <div class="home-actions">
+                        <button type="button" class="action-btn action-btn--primary" onclick="setPage('upscaler')"><%= t('home.cta_upscaler') %></button>
+                        <button type="button" class="action-btn action-btn--ghost" onclick="setPage('filters')"><%= t('home.cta_editor') %></button>
+                    </div>
+                </section>
+
+                <div class="home-grid">
+                    <% [1,2,3,4,5,6].forEach(function(n){ %>
+                    <div class="home-card">
+                        <div class="home-card-title"><%= t('home.f' + n + '.title') %></div>
+                        <p class="home-card-text"><%= t('home.f' + n + '.text') %></p>
+                    </div>
+                    <% }); %>
+                </div>
+
+                <p class="panel-hint"><%= t('home.requirements') %></p>
+            </section>
             <section x-show="$store.page === 'filters'" class="edit-page">
                 <section class="hero">
-                    <h1 class="hero-title" data-i18n="edit.title">Edit images</h1>
-                    <p class="hero-subtitle" data-i18n="edit.subtitle">Full editor with crop, curves, filters, blur, perspective and more.</p>
+                    <h1 class="hero-title"><%= t('edit.title') %></h1>
+                    <p class="hero-subtitle"><%= t('edit.subtitle') %></p>
                 </section>
                 <div class="panel edit-panel">
-                    <iframe class="edit-iframe" src="edit-images/index.html" title="Edit images"></iframe>
+                    <iframe id="edit-frame" class="edit-iframe" src="" data-src="/edit-images/index.html" title="<%= t('edit.frame_title') %>" loading="lazy"></iframe>
                 </div>
             </section>
 
             <section x-show="$store.page === 'upscaler'">
             <section class="hero">
-                <h1 id="title" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-title"
-                    data-i18n="hero.title">AI video upscaling, right in your browser.</h1>
-                <p id="hero-text" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-subtitle"
-                   data-i18n-html="hero.subtitle">
-                    Upscale videos <a href="https://github.com/sb2702/websr" target="_blank">with AI</a> for free. No
-                    installs, no sign-ups. Everything runs locally in your browser.
-                </p>
-                <div class="hero-note" x-show="$store.state === 'info'" data-i18n-html="hero.info"></div>
+                <h1 id="title" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-title"><%= t('hero.title') %></h1>
+                <p id="hero-text" x-show="$store.state === 'init' || $store.state === 'unsupported'" class="hero-subtitle"><%= t('hero.subtitle') %></p>
             </section>
 
         <div class="panel-spacer" x-show="!($store.state === 'init' || $store.state === 'unsupported')"></div>
@@ -98,62 +119,49 @@
         <div id="unsupported-panel" class="panel panel--center"
              x-show="$store.state === 'unsupported'">
             <p class="panel-text">
-                <span data-i18n="unsupported.pre">Your browser does not support</span>
-                <span id="missing-component" x-text="$store.component" class="pill"></span>
-                <span data-i18n="unsupported.post">, a required browser feature for this tool.</span>
+                <span><%= t('unsupported.message').split('{component}')[0] %></span><span id="missing-component" x-text="$store.component" class="pill"></span><span><%= t('unsupported.message').split('{component}')[1] %></span>
                 <br><br>
-                <span data-i18n="unsupported.try">Try the latest version of</span>
-                <img alt="Chrome" src="chrome.svg" width="20" height="20">
-                <span data-i18n="unsupported.chrome">Chrome</span>
-                <span data-i18n="unsupported.or">or</span>
-                <img alt="Edge" src="edge.svg" width="20" height="20">
-                <span data-i18n="unsupported.edge">Edge</span>
-                <span data-i18n="unsupported.device">on a laptop or desktop.</span>
+                <img alt="Chrome" src="/chrome.svg" width="20" height="20">
+                <img alt="Edge" src="/edge.svg" width="20" height="20">
+                <span><%= t('unsupported.try') %></span>
             </p>
         </div>
 
-        <div class="panel-link" x-show="$store.state === 'unsupported'">
-            <a href="https://www.youtube.com/watch?v=hhweJlZsDFE" target="_blank" data-i18n="unsupported.link">For
-                reference, here's how it should work</a>
-        </div>
-
         <div id="loading-panel" class="panel panel--center panel--tall" x-show="$store.state === 'loading'">
-            <img src="loading.svg" alt="Loading" class="loading-image">
+            <img src="/loading.svg" alt="<%= t('preview.alt_loading') %>" class="loading-image">
         </div>
 
         <div id="error-panel" class="panel panel--center panel--tall" x-show="$store.state === 'error'">
             <p class="panel-text">
-                <span data-i18n="error.prefix">An error occurred while processing the video:</span>
+                <span><%= t('error.prefix') %></span>
                 <span class="pill" x-text="$store.error"></span>
             </p>
         </div>
 
         <div id="file-load-panel" class="panel panel--center panel--mid" x-show="$store.state === 'init'">
-            <p class="panel-title" data-i18n="file.choose_title">Choose a video to upscale</p>
+            <p class="panel-title"><%= t('file.choose_title') %></p>
 
             <div class="input-modes">
                 <button type="button" class="action-btn action-btn--primary" id="input-button" onclick="chooseFile(this)"
-                        data-i18n="file.choose_button">Choose a file</button>
+                       ><%= t('file.choose_button') %></button>
                 <button type="button" class="action-btn action-btn--ghost" onclick="chooseFiles()"
-                        data-i18n="input.multiple">Multiple files</button>
+                       ><%= t('input.multiple') %></button>
                 <button type="button" class="action-btn action-btn--ghost" onclick="chooseFolder()"
-                        data-i18n="input.folder">Folder</button>
+                       ><%= t('input.folder') %></button>
             </div>
 
             <label class="checkbox-line">
                 <input type="checkbox" x-bind:checked="$store.includeSubfolders"
                        onchange="setIncludeSubfolders(this.checked)">
-                <span data-i18n="input.include_subfolders">Include subfolders</span>
+                <span><%= t('input.include_subfolders') %></span>
             </label>
 
-            <p class="panel-hint" data-i18n="input.hint">
-                Supported: PNG, JPG, WebP images and MP4/MOV video.
-            </p>
+            <p class="panel-hint"><%= t('input.hint') %></p>
         </div>
 
         <div class="ad-frame" x-show="$store.state === 'init'">
-            <div class="ad-label" data-i18n="ads.label">Sponsored</div>
-            <div class="ad-placeholder" data-i18n="ads.placeholder">Ad space (Google AdSense)</div>
+            <div class="ad-label"><%= t('ads.label') %></div>
+            <div class="ad-placeholder"><%= t('ads.placeholder') %></div>
         </div>
 
         <div id="start-panel" class="panel panel--tall"
@@ -165,40 +173,40 @@
                 </div>
             </div>
 
-            <img src="full-screen.svg" alt="Full Screen" width="15" height="15" id="full-screen"
+            <img src="/full-screen.svg" alt="<%= t('preview.fullscreen') %>" title="<%= t('preview.fullscreen') %>" width="15" height="15" id="full-screen"
                  onclick="fullScreenPreview()" x-show="$store.state === 'preview'" class="fullscreen-icon">
 
             <div id="preview" x-show="$store.state === 'preview'">
                 <div class="preview-block">
                     <div class="preview-line">
-                        <span data-i18n="preview.upscaling">Upscaling</span>
+                        <span><%= t('preview.upscaling') %></span>
                         <span x-text="$store.filename" class="pill"></span>
                     </div>
                     <div class="preview-line">
-                        <span data-i18n="preview.input_size">Input size:</span>
+                        <span><%= t('preview.input_size') %></span>
                         <span class="pill"><span x-text="$store.width"></span>x<span x-text="$store.height"></span></span>
                     </div>
                     <div class="preview-line">
-                        <span data-i18n="preview.output_size">Output size:</span>
+                        <span><%= t('preview.output_size') %></span>
                         <span class="pill" x-text="$store.plan.final"></span>
                     </div>
                 </div>
 
                 <div class="settings-panel">
                     <div class="settings-row">
-                        <div class="settings-label" data-i18n="upscale.mode">Upscale mode</div>
+                        <div class="settings-label"><%= t('upscale.mode') %></div>
                         <div class="settings-controls">
                             <button type="button" class="action-btn action-btn--ghost"
                                     x-bind:class="$store.mode === 'passes' ? 'is-active' : ''"
-                                    onclick="setUpscaleMode('passes')" data-i18n="upscale.mode_passes">Number of passes</button>
+                                    onclick="setUpscaleMode('passes')"><%= t('upscale.mode_passes') %></button>
                             <button type="button" class="action-btn action-btn--ghost"
                                     x-bind:class="$store.mode === 'target' ? 'is-active' : ''"
-                                    onclick="setUpscaleMode('target')" data-i18n="upscale.mode_target">Target resolution</button>
+                                    onclick="setUpscaleMode('target')"><%= t('upscale.mode_target') %></button>
                         </div>
                     </div>
 
                     <div class="settings-row" x-show="$store.mode === 'passes'">
-                        <div class="settings-label" data-i18n="upscale.passes">Passes</div>
+                        <div class="settings-label"><%= t('upscale.passes') %></div>
                         <div class="settings-controls">
                             <template x-for="n in $store.maxPasses" :key="n">
                                 <button type="button" class="action-btn action-btn--ghost pass-btn"
@@ -209,23 +217,23 @@
                     </div>
 
                     <div class="settings-row" x-show="$store.mode === 'target'">
-                        <div class="settings-label" data-i18n="upscale.target">Target long edge (px)</div>
+                        <div class="settings-label"><%= t('upscale.target') %></div>
                         <div class="settings-controls">
                             <input type="number" class="number-input" min="16" step="16"
                                    x-bind:value="$store.targetLongEdge"
                                    onchange="setTargetResolution(this.value)">
-                            <span class="muted" data-i18n="upscale.target_hint">Aspect ratio is always preserved.</span>
+                            <span class="muted"><%= t('upscale.target_hint') %></span>
                         </div>
                     </div>
                 </div>
 
                 <div class="plan-block">
-                    <div class="plan-title" data-i18n="upscale.progression">Expected progression</div>
+                    <div class="plan-title"><%= t('upscale.progression') %></div>
                     <template x-for="line in $store.plan.progression" :key="line">
                         <div class="plan-line" x-text="line"></div>
                     </template>
                     <div class="plan-final">
-                        <span data-i18n="upscale.final">Final expected resolution:</span>
+                        <span><%= t('upscale.final') %></span>
                         <span class="pill" x-text="$store.plan.final"></span>
                     </div>
                     <div class="plan-note" x-show="$store.plan.note" x-text="$store.plan.note"></div>
@@ -235,50 +243,44 @@
                 </div>
 
                 <div id="settings" class="settings-panel">
-                    <div class="settings-row" data-i18n-attr="title" data-i18n="settings.tooltip">
-                        <div class="settings-label" data-i18n="settings.network">Upscaling network</div>
+                    <div class="settings-row" title="<%= t('settings.tooltip') %>">
+                        <div class="settings-label"><%= t('settings.network') %></div>
                         <div class="settings-controls">
                             <input type="radio" class="btn-check" name="options" id="option1" value="small"
                                    onclick="switchNetworkSize(this);" autocomplete="off">
-                            <label class="action-btn action-btn--ghost" for="option1" data-i18n="settings.small">Small</label>
+                            <label class="action-btn action-btn--ghost" for="option1"><%= t('settings.small') %></label>
 
                             <input type="radio" class="btn-check" name="options" id="option2" value="medium"
                                    onclick="switchNetworkSize(this);" autocomplete="off" checked>
-                            <label class="action-btn action-btn--ghost" for="option2" data-i18n="settings.medium">Medium</label>
+                            <label class="action-btn action-btn--ghost" for="option2"><%= t('settings.medium') %></label>
 
                             <input type="radio" class="btn-check" name="options" id="option3" value="large"
                                    onclick="switchNetworkSize(this);" autocomplete="off">
-                            <label class="action-btn action-btn--ghost" for="option3" data-i18n="settings.large">Large</label>
+                            <label class="action-btn action-btn--ghost" for="option3"><%= t('settings.large') %></label>
                         </div>
                     </div>
                 </div>
 
                 <div class="preview-actions">
                     <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="location.reload();"
-                            data-i18n="action.back">
-                        Back
-                    </button>
+                           ><%= t('action.back') %></button>
 
                     <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="initRecording()"
-                            x-show="$store.target === 'writer'" data-i18n="action.choose_output">
-                        Choose output location
-                        <img src="folder.svg" alt="Choose a location to save the file to" width="12" height="12">
+                            x-show="$store.target === 'writer'"><%= t('action.choose_output') %><img src="/folder.svg" alt="<%= t('action.alt_folder') %>" width="12" height="12">
                     </button>
 
                     <button type="button" class="action-btn action-btn--primary action-btn--wide" onclick="initRecording()"
                             x-bind:disabled="$store.plan.safetyLevel === 'block'"
-                            x-show="$store.target === 'blob' || $store.target === 'image'" data-i18n="action.start_upscaling">
-                        Start upscaling
-                        <img src="play.svg" alt="Start upscaling your video" width="12" height="12">
+                            x-show="$store.target === 'blob' || $store.target === 'image'"><%= t('action.start_upscaling') %><img src="/play.svg" alt="<%= t('action.alt_play') %>" width="12" height="12">
                     </button>
                 </div>
             </div>
 
             <div id="info" x-show="$store.state === 'processing'">
                 <p class="processing-line">
-                    <span data-i18n="processing.prefix">Upscaling</span>
+                    <span><%= t('processing.prefix') %></span>
                     <span x-text="$store.filename" class="pill"></span>.
-                    <span data-i18n="processing.eta">Estimated time left:</span>
+                    <span><%= t('processing.eta') %></span>
                     <span x-text="$store.eta"></span>
                 </p>
 
@@ -293,27 +295,23 @@
                 </div>
             </div>
 
-            <p x-show="$store.state === 'complete'" class="completion-note" data-i18n="complete.note">
-                If you like the tool, please consider starring the project on GitHub.
-            </p>
+            <p x-show="$store.state === 'complete'" class="completion-note"><%= t('complete.note') %></p>
 
             <div id="download-link" x-show="$store.state === 'complete'">
                 <div class="save-note" x-show="$store.target=='writer'">
-                    <span data-i18n="complete.saved">Saved result to</span>
+                    <span><%= t('complete.saved') %></span>
                     <span x-text="$store.download_name" class="pill"></span>
                 </div>
 
                 <div class="actions-row">
                     <button type="button" class="action-btn action-btn--ghost" onclick="location.reload();"
-                            data-i18n="complete.upscale_another">Upscale another
-                        <img src="refresh.svg" alt="Upscale another video" width="18" height="18">
+                           ><%= t('complete.upscale_another') %><img src="/refresh.svg" alt="<%= t('action.alt_refresh') %>" width="18" height="18">
                     </button>
 
                     <a x-bind:href="$store.download_url" x-bind:download="$store.download_name"
                        x-show="$store.target=='blob' || $store.target=='image'" class="download-link">
                         <button type="button" class="action-btn action-btn--primary" id="download"
-                                data-i18n="complete.download">Download
-                            <img src="download-icon.svg" width="18" height="18">
+                               ><%= t('complete.download') %><img src="/download-icon.svg" width="18" height="18" alt="<%= t('action.alt_download') %>">
                         </button>
                     </a>
                 </div>
@@ -323,26 +321,26 @@
         <div id="batch-panel" class="panel" x-show="$store.state === 'batch'">
             <div class="batch-header">
                 <div>
-                    <div class="panel-title" data-i18n="batch.title">Batch queue</div>
+                    <div class="panel-title"><%= t('batch.title') %></div>
                     <div class="batch-counts">
-                        <span data-i18n="batch.detected">Files detected:</span>
+                        <span><%= t('batch.detected') %></span>
                         <span class="pill" x-text="$store.batch.items.length"></span>
-                        <span data-i18n="batch.images">Images:</span>
+                        <span><%= t('batch.images') %></span>
                         <span class="pill" x-text="$store.batch.counts.images"></span>
-                        <span data-i18n="batch.videos">Videos:</span>
+                        <span><%= t('batch.videos') %></span>
                         <span class="pill" x-text="$store.batch.counts.videos"></span>
                         <span x-show="$store.batch.counts.unsupported">
-                            <span data-i18n="batch.ignored">Ignored:</span>
+                            <span><%= t('batch.ignored') %></span>
                             <span class="pill" x-text="$store.batch.counts.unsupported"></span>
                         </span>
                     </div>
                 </div>
                 <button type="button" class="action-btn action-btn--ghost" onclick="resetBatch()"
-                        x-bind:disabled="$store.batch.running" data-i18n="batch.start_over">Start over</button>
+                        x-bind:disabled="$store.batch.running"><%= t('batch.start_over') %></button>
             </div>
 
             <details class="batch-skipped" x-show="$store.batch.skipped.length">
-                <summary data-i18n="batch.skipped_title">Ignored files</summary>
+                <summary><%= t('batch.skipped_title') %></summary>
                 <template x-for="item in $store.batch.skipped" :key="item.name">
                     <div class="batch-skipped-row">
                         <span x-text="item.name"></span>
@@ -353,19 +351,19 @@
 
             <div class="settings-panel">
                 <div class="settings-row">
-                    <div class="settings-label" data-i18n="batch.apply_all">Apply to all</div>
+                    <div class="settings-label"><%= t('batch.apply_all') %></div>
                     <div class="settings-controls">
                         <button type="button" class="action-btn action-btn--ghost"
                                 x-bind:class="$store.batch.global.mode === 'passes' ? 'is-active' : ''"
-                                onclick="setBatchMode('passes')" data-i18n="upscale.mode_passes">Number of passes</button>
+                                onclick="setBatchMode('passes')"><%= t('upscale.mode_passes') %></button>
                         <button type="button" class="action-btn action-btn--ghost"
                                 x-bind:class="$store.batch.global.mode === 'target' ? 'is-active' : ''"
-                                onclick="setBatchMode('target')" data-i18n="upscale.mode_target">Target resolution</button>
+                                onclick="setBatchMode('target')"><%= t('upscale.mode_target') %></button>
                     </div>
                 </div>
 
                 <div class="settings-row" x-show="$store.batch.global.mode === 'passes'">
-                    <div class="settings-label" data-i18n="upscale.passes">Passes</div>
+                    <div class="settings-label"><%= t('upscale.passes') %></div>
                     <div class="settings-controls">
                         <template x-for="n in $store.maxPasses" :key="n">
                             <button type="button" class="action-btn action-btn--ghost pass-btn"
@@ -376,7 +374,7 @@
                 </div>
 
                 <div class="settings-row" x-show="$store.batch.global.mode === 'target'">
-                    <div class="settings-label" data-i18n="upscale.target">Target long edge (px)</div>
+                    <div class="settings-label"><%= t('upscale.target') %></div>
                     <div class="settings-controls">
                         <input type="number" class="number-input" min="16" step="16"
                                x-bind:value="$store.batch.global.targetLongEdge"
@@ -385,30 +383,30 @@
                 </div>
 
                 <div class="settings-row">
-                    <div class="settings-label" data-i18n="batch.output">Output folder</div>
+                    <div class="settings-label"><%= t('batch.output') %></div>
                     <div class="settings-controls">
                         <span class="pill" x-text="$store.batch.outputLabel || 'browser downloads'"></span>
                         <button type="button" class="action-btn action-btn--ghost" onclick="chooseOutputFolder()"
-                                x-bind:disabled="$store.batch.running" data-i18n="batch.choose_output">Choose…</button>
+                                x-bind:disabled="$store.batch.running"><%= t('batch.choose_output') %></button>
                     </div>
                 </div>
 
                 <div class="settings-row">
-                    <div class="settings-label" data-i18n="batch.pdf">PDF</div>
+                    <div class="settings-label"><%= t('batch.pdf') %></div>
                     <div class="settings-controls">
                         <label class="checkbox-line">
                             <input type="checkbox" x-bind:checked="$store.batch.options.createPdf"
                                    onchange="setCreatePdf(this.checked)">
-                            <span data-i18n="batch.pdf_create">Create PDF from processed images</span>
+                            <span><%= t('batch.pdf_create') %></span>
                         </label>
                         <select class="number-input" x-show="$store.batch.options.createPdf"
                                 onchange="setPdfQuality(this.value)">
-                            <option value="maximum" data-i18n="batch.pdf_max">Maximum</option>
-                            <option value="balanced" data-i18n="batch.pdf_balanced">Balanced</option>
+                            <option value="maximum"><%= t('batch.pdf_max') %></option>
+                            <option value="balanced"><%= t('batch.pdf_balanced') %></option>
                         </select>
                         <input type="text" class="text-input" x-show="$store.batch.options.createPdf"
                                x-bind:value="$store.batch.options.pdfName"
-                               placeholder="filename.pdf" onchange="setPdfName(this.value)">
+                               placeholder="<%= t('batch.pdf_filename') %>" onchange="setPdfName(this.value)">
                     </div>
                 </div>
             </div>
@@ -424,12 +422,12 @@
                 <table class="batch-table">
                     <thead>
                     <tr>
-                        <th data-i18n="batch.col_file">File</th>
-                        <th data-i18n="batch.col_type">Type</th>
-                        <th data-i18n="batch.col_source">Original</th>
-                        <th data-i18n="batch.col_passes">Passes</th>
-                        <th data-i18n="batch.col_expected">Expected output</th>
-                        <th data-i18n="batch.col_status">Status</th>
+                        <th><%= t('batch.col_file') %></th>
+                        <th><%= t('batch.col_type') %></th>
+                        <th><%= t('batch.col_source') %></th>
+                        <th><%= t('batch.col_passes') %></th>
+                        <th><%= t('batch.col_expected') %></th>
+                        <th><%= t('batch.col_status') %></th>
                         <th></th>
                     </tr>
                     </thead>
@@ -443,10 +441,10 @@
                                 <select class="mini-select" x-bind:disabled="$store.batch.running"
                                         x-on:change="setItemOverride(item.id, $event.target.value)">
                                     <option value="global" x-bind:selected="item.overrideValue === 'global'"
-                                            x-text="'Global (' + item.settingLabel + ')'"></option>
+                                            x-text="item.globalLabel"></option>
                                     <template x-for="n in $store.maxPasses" :key="n">
                                         <option x-bind:value="n" x-bind:selected="item.overrideValue == n"
-                                                x-text="n + ' pass'"></option>
+                                                x-text="$store.passOptionLabels[n]"></option>
                                     </template>
                                 </select>
                             </td>
@@ -458,7 +456,7 @@
                             </td>
                             <td>
                                 <button type="button" class="mini-btn" x-bind:disabled="$store.batch.running"
-                                        x-on:click="removeBatchItem(item.id)">✕</button>
+                                        x-on:click="removeBatchItem(item.id)"aria-label="<%= t('batch.remove_row') %>" title="<%= t('batch.remove_row') %>">✕</button>
                             </td>
                         </tr>
                     </template>
@@ -482,24 +480,14 @@
                 <template x-if="$store.batch.summary">
                     <div>
                         <div class="plan-final">
-                            <span x-text="$store.batch.summary.total"></span>
-                            <span data-i18n="batch.files_processed">files processed</span>
-                            —
-                            <span x-text="$store.batch.summary.successful"></span>
-                            <span data-i18n="batch.successful">successful</span>,
-                            <span x-text="$store.batch.summary.failed"></span>
-                            <span data-i18n="batch.failed">failed</span>
-                            <span x-show="$store.batch.summary.cancelled">,
-                                <span x-text="$store.batch.summary.cancelled"></span>
-                                <span data-i18n="batch.cancelled">cancelled</span>
-                            </span>
+                            <span x-text="$store.batch.summaryText"></span>
                         </div>
                         <div class="plan-line">
-                            <span data-i18n="batch.saved_to">Saved to:</span>
+                            <span><%= t('batch.saved_to') %></span>
                             <span class="pill" x-text="$store.batch.summary.outputLocation"></span>
                         </div>
                         <div class="plan-line" x-show="$store.batch.summary.pdfName">
-                            <span data-i18n="batch.pdf_created">PDF:</span>
+                            <span><%= t('batch.pdf_created') %></span>
                             <span class="pill" x-text="$store.batch.summary.pdfName"></span>
                         </div>
                         <template x-for="note in $store.batch.summary.pdfNotes" :key="note">
@@ -510,7 +498,7 @@
             </div>
 
             <details class="batch-skipped" x-show="$store.batch.log.length">
-                <summary data-i18n="batch.log">Processing log</summary>
+                <summary><%= t('batch.log') %></summary>
                 <template x-for="line in $store.batch.log" :key="line">
                     <div class="batch-skipped-row"><span x-text="line"></span></div>
                 </template>
@@ -520,21 +508,19 @@
                 <button type="button" class="action-btn action-btn--primary action-btn--wide"
                         onclick="startBatch()"
                         x-bind:disabled="$store.batch.running || !$store.batch.items.length || $store.batch.safety.level === 'block'"
-                        data-i18n="batch.process">PROCESS BATCH</button>
+                       ><%= t('batch.process') %></button>
 
                 <button type="button" class="action-btn action-btn--ghost action-btn--wide" onclick="cancelBatch()"
-                        x-show="$store.batch.running" data-i18n="batch.cancel">Cancel batch</button>
+                        x-show="$store.batch.running"><%= t('batch.cancel') %></button>
             </div>
         </div>
 
-        <div class="ad-frame" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete'"
-            <div class="ad-label" data-i18n="ads.label">Sponsored</div>
-            <div class="ad-placeholder" data-i18n="ads.placeholder">Ad space (Google AdSense)</div>
+        <div class="ad-frame" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete'">
+            <div class="ad-label"><%= t('ads.label') %></div>
+            <div class="ad-placeholder"><%= t('ads.placeholder') %></div>
         </div>
 
             </section>
-
-        <footer id="footer" class="footer"></footer>
         </main>
     </div>
 </div>

@@ -273,8 +273,8 @@ async function testFolderScan(): Promise<void> {
         flat.skipped.length === 4 &&
         flat.skipped.some((s) => s.name.includes('notes.txt')) &&
         flat.skipped.some((s) => s.name.includes('.DS_Store')) &&
-        flat.skipped.some((s) => s.reason.includes('subfolder')),
-        flat.skipped.map((s) => `${s.name} (${s.reason})`).join('; ')
+        flat.skipped.some((s) => s.reason.key === 'skip.subfolder'),
+        flat.skipped.map((s) => `${s.name} (${s.reason.key})`).join('; ')
     );
 
     // With recursion explicitly enabled
@@ -424,7 +424,7 @@ async function testFailureIsolation(): Promise<void> {
         summary.successful === 2 && summary.failed === 1 &&
         controller.items.find((i) => i.id === 'broken')!.status === 'failed',
         `${summary.total} files: ${summary.successful} successful, ${summary.failed} failed ` +
-        `(${controller.items.find((i) => i.id === 'broken')!.error})`
+        `(${controller.items.find((i) => i.id === 'broken')!.error?.key})`
     );
 }
 
@@ -437,7 +437,7 @@ async function testCorruptScan(): Promise<void> {
     check(
         'Test 7d — undecodable image is skipped with a reason',
         controller.items.length === 0 && controller.skipped.length === 1,
-        controller.skipped.map((s) => `${s.name}: ${s.reason}`).join('; ')
+        controller.skipped.map((s) => `${s.name}: ${s.reason.key}`).join('; ')
     );
 }
 

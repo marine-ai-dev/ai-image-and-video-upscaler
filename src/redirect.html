@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Image &amp; Video Upscaler</title>
+    <meta name="robots" content="noindex">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="canonical" href="/en/">
+    <script>
+        // Pick the stored language, else the closest browser language, else English.
+        (function () {
+            var supported = ['en', 'uk'];
+            var stored = null;
+            try { stored = localStorage.getItem('lang'); } catch (e) { /* private mode */ }
+            var chosen = supported.indexOf(stored) >= 0 ? stored : null;
+            if (!chosen) {
+                var languages = navigator.languages || [navigator.language || 'en'];
+                for (var i = 0; i < languages.length && !chosen; i++) {
+                    var base = String(languages[i]).slice(0, 2).toLowerCase();
+                    if (supported.indexOf(base) >= 0) chosen = base;
+                }
+            }
+            location.replace('/' + (chosen || 'en') + '/' + location.search + location.hash);
+        })();
+    </script>
+</head>
+<body>
+    <noscript><a href="/en/">English</a> · <a href="/uk/">Українська</a></noscript>
+</body>
+</html>

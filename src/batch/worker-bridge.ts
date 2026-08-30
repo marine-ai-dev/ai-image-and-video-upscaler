@@ -8,6 +8,7 @@
  */
 
 import type { WorkerResponseMessage, PassOptions } from '../types/worker-messages';
+import { AppError } from '../lib/app-error';
 
 export interface JobResult {
     data: ArrayBuffer | null;
@@ -28,9 +29,9 @@ interface PendingJob {
     onProgress?: (progress: JobProgress) => void;
 }
 
-export class CancelledError extends Error {
+export class CancelledError extends AppError {
     constructor() {
-        super('Cancelled');
+        super('error.cancelled');
         this.name = 'CancelledError';
     }
 }
@@ -162,7 +163,7 @@ export class WorkerBridge {
         if (message.cmd === 'jobError') {
             const job = this.pending.get(message.jobId);
             this.pending.delete(message.jobId);
-            job?.reject(message.cancelled ? new CancelledError() : new Error(message.message));
+            job?.reject(message.cancelled ? new CancelledError() : new AppError(message.message.key, message.message.params));
             return true;
         }
 

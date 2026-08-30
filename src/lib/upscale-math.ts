@@ -1,3 +1,5 @@
+import type { Msg } from './i18n';
+
 /**
  * Pure helpers for multi-pass upscale planning.
  *
@@ -192,8 +194,8 @@ export interface SafetyReport {
     megapixels: number;
     /** Rough peak GPU memory for the heaviest pass. */
     estimatedGpuBytes: number;
-    /** Human readable reasons, most important first. */
-    reasons: string[];
+    /** Translatable reasons, most important first. */
+    reasons: Msg[];
     /** Largest pass count that stays inside the device limits (0 = none possible). */
     maxSafePasses: number;
 }
@@ -269,7 +271,7 @@ export function evaluateSafety(input: SafetyInput): SafetyReport {
     const budget = input.memoryBudgetBytes;
     const pngOutput = input.pngOutput ?? true;
 
-    const reasons: string[] = [];
+    const reasons: Msg[] = [];
     let level: SafetyLevel = 'ok';
 
     // Highest pass count that satisfies both the hard device limits and, when a
@@ -300,47 +302,53 @@ export function evaluateSafety(input: SafetyInput): SafetyReport {
         const blockedBufferBytes = blockedInput.width * blockedInput.height * BYTES_PER_BUFFER_PIXEL;
 
         if (Math.max(blocked.width, blocked.height) > caps.maxTextureDimension) {
-            reasons.push(
-                `Pass ${limitPass} would need a ${blocked.width}x${blocked.height} GPU texture, ` +
-                `but this GPU allows at most ${caps.maxTextureDimension}px per side.`
-            );
+            reasons.push({ key: 'safety.block_texture', params: {
+                pass: limitPass,
+                width: blocked.width,
+                height: blocked.height,
+                limit: caps.maxTextureDimension
+            } });
         } else if (blockedBufferBytes > caps.maxStorageBufferBindingSize) {
-            reasons.push(
-                `Pass ${limitPass} would need ${formatBytes(blockedBufferBytes)} per intermediate GPU buffer, ` +
-                `but this GPU allows at most ${formatBytes(caps.maxStorageBufferBindingSize)}.`
-            );
+            reasons.push({ key: 'safety.block_buffer', params: {
+                pass: limitPass,
+                needed: formatBytes(blockedBufferBytes),
+                limit: formatBytes(caps.maxStorageBufferBindingSize)
+            } });
         } else {
             // Memory block: describe what the user actually selected, not just
             // the first pass that tipped over the limit.
-            const needed = estimatePeakBytes(input.source, input.passes, bytesPerInputPixel, pngOutput);
-            reasons.push(
-                `${input.passes} pass${input.passes === 1 ? '' : 'es'} would need about ${formatBytes(needed)} of ` +
-                `working memory for a ${finalDimensions.width}x${finalDimensions.height} result, beyond the ` +
-                `${formatBytes(budget!)} this device can safely use. A texture that size is allowed by the GPU, ` +
-                'but the intermediate data for every pass has to be held at once.'
-            );
+            reasons.push({ key: 'safety.block_memory', params: {
+                passes: input.passes,
+                needed: formatBytes(estimatePeakBytes(input.source, input.passes, bytesPerInputPixel, pngOutput)),
+                width: finalDimensions.width,
+                height: finalDimensions.height,
+                budget: formatBytes(budget!)
+            } });
         }
 
-        reasons.push(
-            maxSafePasses > 0
-                ? `This source supports up to ${maxSafePasses} pass${maxSafePasses === 1 ? '' : 'es'} ` +
-                  `(${formatDimensions(dimensionsAfterPasses(input.source, maxSafePasses))}).`
-                : 'This source is already too large for a single pass on this device.'
-        );
+        reasons.push(maxSafePasses > 0
+            ? { key: 'safety.supports_up_to', params: {
+                passes: maxSafePasses,
+                size: formatDimensions(dimensionsAfterPasses(input.source, maxSafePasses))
+            } }
+            : { key: 'safety.too_large' });
     } else if (budget !== undefined && estimatedGpuBytes > budget * WARN_BUDGET_FRACTION) {
         level = 'warn';
-        reasons.push(
-            `Final image will be about ${finalDimensions.width}x${finalDimensions.height} ` +
-            `(${megapixels.toFixed(1)} MP). This needs roughly ${formatBytes(estimatedGpuBytes)} of working memory ` +
-            `out of the ${formatBytes(budget)} available for a job, and may take a long time.`
-        );
+        reasons.push({ key: 'safety.warn_memory', params: {
+            width: finalDimensions.width,
+            height: finalDimensions.height,
+            mp: megapixels.toFixed(1),
+            needed: formatBytes(estimatedGpuBytes),
+            budget: formatBytes(budget)
+        } });
     } else if (megapixels > warnMegapixels) {
         level = 'warn';
-        reasons.push(
-            `Final image will be about ${finalDimensions.width}x${finalDimensions.height} ` +
-            `(${megapixels.toFixed(1)} MP, roughly ${formatBytes(estimatedGpuBytes)} of memory at peak). ` +
-            'This may take a long time and use significant RAM/VRAM.'
-        );
+        reasons.push({ key: 'safety.warn_size', params: {
+            width: finalDimensions.width,
+            height: finalDimensions.height,
+            mp: megapixels.toFixed(1),
+            needed: formatBytes(estimatedGpuBytes)
+        } });
     }
 
     return { level, finalDimensions, megapixels, estimatedGpuBytes, reasons, maxSafePasses };

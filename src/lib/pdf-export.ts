@@ -12,6 +12,8 @@
  */
 
 import { PDFDocument } from 'pdf-lib';
+import { Msg, msg } from './i18n';
+import { AppError } from './app-error';
 
 export type PdfQuality = 'maximum' | 'balanced';
 
@@ -37,7 +39,7 @@ export interface PdfBuildResult {
     bytes: Uint8Array;
     pageCount: number;
     /** Anything that changed the images on the way in, so it is never silent. */
-    notes: string[];
+    notes: Msg[];
 }
 
 /** PDF page boxes may not exceed 14400 units per side. */
@@ -58,11 +60,11 @@ export async function buildImagePdf(
     options: { quality?: PdfQuality } = {}
 ): Promise<PdfBuildResult> {
     const quality = options.quality || 'maximum';
-    const notes: string[] = [];
+    const notes: Msg[] = [];
 
     const pdf = await PDFDocument.create();
-    pdf.setProducer('Free AI Video & Image Upscaler');
-    pdf.setCreator('Free AI Video & Image Upscaler');
+    pdf.setProducer('Marine AI Dev - AI Image & Video Upscaler');
+    pdf.setCreator('Marine AI Dev - AI Image & Video Upscaler');
 
     let pageCount = 0;
     let embeddedBytes = 0;
@@ -85,10 +87,7 @@ export async function buildImagePdf(
     }
 
     if (embeddedBytes > LARGE_PDF_WARNING_BYTES) {
-        notes.push(
-            `This PDF contains about ${(embeddedBytes / 1024 ** 2).toFixed(0)} MiB of image data ` +
-            '- consider "Balanced" quality if the file is too large to open or share comfortably.'
-        );
+        notes.push(msg('pdf.note_large', { size: `${(embeddedBytes / 1024 ** 2).toFixed(0)} MiB` }));
     }
 
     const bytes = await pdf.save();
@@ -102,7 +101,7 @@ export async function buildImagePdf(
 function pageSizeFor(
     width: number,
     height: number,
-    notes: string[],
+    notes: Msg[],
     name: string
 ): { pageWidth: number; pageHeight: number } {
     const longest = Math.max(width, height);
@@ -111,10 +110,7 @@ function pageSizeFor(
     }
 
     const factor = MAX_PAGE_POINTS / longest;
-    notes.push(
-        `${name}: page box scaled to the PDF ${MAX_PAGE_POINTS}pt limit ` +
-        `(full ${width}x${height} pixel data is still embedded).`
-    );
+    notes.push(msg('pdf.note_pagebox', { name, limit: MAX_PAGE_POINTS, width, height }));
     return {
         pageWidth: Math.floor(width * factor),
         pageHeight: Math.floor(height * factor)
@@ -129,7 +125,7 @@ async function prepareForEmbedding(
     image: PdfImageInput,
     sourceBytes: Uint8Array,
     quality: PdfQuality,
-    notes: string[]
+    notes: Msg[]
 ): Promise<{ bytes: Uint8Array; mime: string }> {
     const pixels = image.width * image.height;
 
@@ -144,10 +140,9 @@ async function prepareForEmbedding(
             return { bytes: sourceBytes, mime: 'image/png' };
         }
         if (image.mime === 'image/png') {
-            notes.push(
-                `${image.name}: ${(pixels / 1e6).toFixed(0)} MP is too large to embed losslessly, ` +
-                `used JPEG quality ${MAXIMUM_JPEG_FALLBACK_QUALITY} instead.`
-            );
+            notes.push(msg('pdf.note_lossless_fallback', {
+                name: image.name, mp: (pixels / 1e6).toFixed(0), quality: MAXIMUM_JPEG_FALLBACK_QUALITY
+            }));
             return {
                 bytes: await reencode(sourceBytes, 'image/jpeg', MAXIMUM_JPEG_FALLBACK_QUALITY),
                 mime: 'image/jpeg'
@@ -155,19 +150,19 @@ async function prepareForEmbedding(
         }
         // WebP (or anything else): pdf-lib cannot embed it, so convert.
         if (pixels <= MAX_LOSSLESS_PIXELS) {
-            notes.push(`${image.name}: converted from ${image.mime} to PNG for the PDF (lossless).`);
+            notes.push(msg('pdf.note_converted_png', { name: image.name, mime: image.mime }));
             return { bytes: await reencode(sourceBytes, 'image/png'), mime: 'image/png' };
         }
-        notes.push(
-            `${image.name}: converted from ${image.mime} to JPEG quality ${MAXIMUM_JPEG_FALLBACK_QUALITY} for the PDF.`
-        );
+        notes.push(msg('pdf.note_converted_jpeg', {
+            name: image.name, mime: image.mime, quality: MAXIMUM_JPEG_FALLBACK_QUALITY
+        }));
         return {
             bytes: await reencode(sourceBytes, 'image/jpeg', MAXIMUM_JPEG_FALLBACK_QUALITY),
             mime: 'image/jpeg'
         };
     }
 
-    notes.push(`${image.name}: encoded as JPEG quality ${BALANCED_JPEG_QUALITY} (Balanced PDF quality).`);
+    notes.push(msg('pdf.note_balanced', { name: image.name, quality: BALANCED_JPEG_QUALITY }));
     return {
         bytes: await reencode(sourceBytes, 'image/jpeg', BALANCED_JPEG_QUALITY),
         mime: 'image/jpeg'
@@ -181,7 +176,7 @@ async function reencode(bytes: Uint8Array, targetMime: string, quality?: number)
     try {
         const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
         const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('Unable to get a 2D context for PDF image conversion');
+        if (!ctx) throw new AppError('error.pdf_context');
 
         if (targetMime === 'image/jpeg') {
             // JPEG has no alpha; matte on white so transparent areas do not go black.

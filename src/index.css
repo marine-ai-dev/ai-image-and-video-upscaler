@@ -116,13 +116,6 @@ body {
     padding: 6px 0;
 }
 
-.sidebar-brand .brand-mark {
-    width: 58px;
-    height: 58px;
-    aspect-ratio: 1 / 1;
-    border-radius: 14px;
-}
-
 .sidebar-brand .brand-name {
     font-size: 1.3rem;
 }
@@ -157,17 +150,6 @@ body {
     display: flex;
     align-items: center;
     gap: 16px;
-}
-
-.brand-mark {
-    width: 56px;
-    height: 56px;
-    aspect-ratio: 1 / 1;
-    display: block;
-    border-radius: 18px;
-    background: conic-gradient(from 120deg, #f5b183, #cc6b2c, #7b3a14, #cc6b2c);
-    box-shadow: var(--shadow);
-    flex: 0 0 auto;
 }
 
 .brand-text {
@@ -884,4 +866,67 @@ video {
 
 .settings-controls .checkbox-line {
     margin-top: 0;
+}
+
+/* ===================== Brand mark & home page ===================== */
+
+.brand-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.home-page {
+    display: flex;
+    flex-direction: column;
+}
+
+.home-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.home-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin: 28px 0 8px;
+}
+
+.home-card {
+    padding: 18px 20px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 8px 20px rgba(60, 32, 10, 0.05);
+}
+
+[data-theme="dark"] .home-card {
+    box-shadow: none;
+}
+
+.home-card-title {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--ink);
+}
+
+.home-card-text {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+/* Language switcher is now a pair of real links */
+a.lang-btn {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }

@@ -3,6 +3,8 @@
  * the main thread and the video processing worker.
  */
 
+import type { Msg } from '../lib/i18n';
+
 export interface Resolution {
   width: number;
   height: number;
@@ -97,12 +99,12 @@ export type WorkerResponseMessage =
   | { cmd: 'eta'; data: string }
   | { cmd: 'pass'; data: { pass: number; passes: number; width: number; height: number } }
   | { cmd: 'process' }
-  | { cmd: 'error'; data: string }
+  | { cmd: 'error'; data: Msg }
   | { cmd: 'finishedImage'; data: ArrayBuffer; mimeType: string; width?: number; height?: number }
   | { cmd: 'finished'; data: ArrayBuffer | null }
   | { cmd: 'jobProgress'; jobId: string; pass: number; passes: number; percent: number }
   | { cmd: 'jobDone'; jobId: string; data: ArrayBuffer | null; mimeType: string; width: number; height: number }
-  | { cmd: 'jobError'; jobId: string; message: string; cancelled?: boolean }
+  | { cmd: 'jobError'; jobId: string; message: Msg; cancelled?: boolean }
   /** Measured GPU cost of a network, used for realistic memory predictions. */
   | { cmd: 'networkProfile'; data: { name: string; bytesPerInputPixel: number } }
   /** Snapshot of the worker's GPU instance cache (diagnostics/tests). */

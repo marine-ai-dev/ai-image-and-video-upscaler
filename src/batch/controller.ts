@@ -34,6 +34,8 @@ import {
 } from '../lib/media-files';
 
 import { PdfImageInput, PdfQuality, buildImagePdf, defaultPdfName } from '../lib/pdf-export';
+import { Msg, msg } from '../lib/i18n';
+import { AppError, toMsg } from '../lib/app-error';
 import { CancelledError, JobProgress, WorkerBridge } from './worker-bridge';
 
 export type ItemStatus = 'waiting' | 'processing' | 'complete' | 'failed' | 'skipped' | 'cancelled';
@@ -49,7 +51,7 @@ export interface BatchItem {
     /** null means "use the global batch settings". */
     override: UpscaleSettings | null;
     status: ItemStatus;
-    error?: string;
+    error?: Msg;
     outputName?: string;
     passProgress?: JobProgress;
     result?: Dimensions;
@@ -57,7 +59,7 @@ export interface BatchItem {
 
 export interface SkippedFile {
     name: string;
-    reason: string;
+    reason: Msg;
 }
 
 export interface NetworkChoice {
@@ -82,13 +84,13 @@ export interface BatchSummary {
     failed: number;
     cancelled: number;
     pdfName?: string;
-    pdfNotes: string[];
-    outputLocation: string;
+    pdfNotes: Msg[];
+    outputLocation: Msg;
 }
 
 export interface ControllerCallbacks {
     onChange: () => void;
-    onLog: (message: string) => void;
+    onLog: (message: Msg) => void;
 }
 
 interface ProcessedImage {
@@ -179,13 +181,13 @@ export class BatchController {
                 if (recursive && !isHiddenFile(entry.name)) {
                     await this.scanDirectory(entry, true, `${prefix}${entry.name}/`);
                 } else if (!recursive) {
-                    this.skipped.push({ name: `${prefix}${entry.name}/`, reason: 'subfolder (not included)' });
+                    this.skipped.push({ name: `${prefix}${entry.name}/`, reason: msg('skip.subfolder') });
                 }
                 continue;
             }
 
             if (isHiddenFile(entry.name)) {
-                this.skipped.push({ name: `${prefix}${entry.name}`, reason: 'hidden/system file' });
+                this.skipped.push({ name: `${prefix}${entry.name}`, reason: msg('skip.hidden') });
                 continue;
             }
 
@@ -199,7 +201,7 @@ export class BatchController {
     private async addHandle(handle: FileSystemFileHandle, path: string): Promise<void> {
         const kind = classifyFile(handle.name);
         if (kind === 'unsupported') {
-            this.skipped.push({ name: path, reason: 'unsupported file type' });
+            this.skipped.push({ name: path, reason: msg('skip.unsupported') });
             return;
         }
 
@@ -220,7 +222,7 @@ export class BatchController {
                 status: 'waiting'
             });
         } catch (error: any) {
-            this.skipped.push({ name: path, reason: `could not be read (${error?.message || error})` });
+            this.skipped.push({ name: path, reason: msg('skip.unreadable', { reason: error?.message || String(error) }) });
         }
     }
 
@@ -261,18 +263,18 @@ export class BatchController {
     }
 
     /** Worst safety level across the queue, for the pre-flight banner. */
-    batchSafety(): { level: 'ok' | 'warn' | 'block'; reasons: string[] } {
-        const reasons: string[] = [];
+    batchSafety(): { level: 'ok' | 'warn' | 'block'; reasons: { name: string; reason: Msg }[] } {
+        const reasons: { name: string; reason: Msg }[] = [];
         let level: 'ok' | 'warn' | 'block' = 'ok';
 
         for (const item of this.items) {
             const report = this.safetyFor(item);
             if (report.level === 'block') {
                 level = 'block';
-                reasons.push(`${item.name}: ${report.reasons[0]}`);
+                reasons.push({ name: item.name, reason: report.reasons[0] });
             } else if (report.level === 'warn' && level !== 'block') {
                 level = 'warn';
-                reasons.push(`${item.name}: ${report.reasons[0]}`);
+                reasons.push({ name: item.name, reason: report.reasons[0] });
             }
         }
 
@@ -304,7 +306,7 @@ export class BatchController {
     //=================== Processing ===========================
 
     async run(): Promise<BatchSummary> {
-        if (this.running) throw new Error('A batch is already running');
+        if (this.running) throw new AppError('error.batch_running');
 
         this.running = true;
         this.cancelling = false;
@@ -353,9 +355,9 @@ export class BatchController {
                     cancelled++;
                 } else {
                     item.status = 'failed';
-                    item.error = error?.message || String(error);
+                    item.error = toMsg(error);
                     failed++;
-                    this.callbacks.onLog(`FAILED ${item.path}: ${item.error}`);
+                    this.callbacks.onLog(msg('log.failed', { path: item.path, reason: error?.message || String(error) }));
                     console.error('[batch] failed', item.path, error);
                 }
             }
@@ -371,7 +373,7 @@ export class BatchController {
             failed,
             cancelled,
             pdfNotes: [],
-            outputLocation: this.outputDirectoryLabel || 'browser downloads'
+            outputLocation: this.outputDirectoryLabel ? msg('error.raw', { reason: this.outputDirectoryLabel }) : msg('batch.downloads')
         };
 
         if (this.options.createPdf && !this.cancelling && this.processedImages.length > 0) {
@@ -380,8 +382,9 @@ export class BatchController {
                 summary.pdfName = pdf.name;
                 summary.pdfNotes = pdf.notes;
             } catch (error: any) {
-                summary.pdfNotes = [`PDF creation failed: ${error?.message || error}`];
-                this.callbacks.onLog(`PDF creation failed: ${error?.message || error}`);
+                const reason = error?.message || String(error);
+                summary.pdfNotes = [msg('log.pdf_failed', { reason })];
+                this.callbacks.onLog(msg('log.pdf_failed', { reason }));
                 console.error('[batch] pdf failed', error);
             }
         }
@@ -400,7 +403,7 @@ export class BatchController {
         if (!this.running) return;
         this.cancelling = true;
         this.bridge.cancel();
-        this.callbacks.onLog('Cancellation requested; finishing the current operation safely.');
+        this.callbacks.onLog(msg('log.cancelling'));
         this.callbacks.onChange();
     }
 
@@ -409,7 +412,7 @@ export class BatchController {
         const safety = this.safetyFor(item);
 
         if (safety.level === 'block') {
-            throw new Error(safety.reasons[0] || 'Exceeds this GPU\'s limits');
+            throw new AppError(safety.reasons[0]?.key || 'error.gpu_limits', safety.reasons[0]?.params);
         }
 
         const jobId = this.bridge.nextJobId(item.id);
@@ -418,10 +421,13 @@ export class BatchController {
             this.callbacks.onChange();
         };
 
-        this.callbacks.onLog(
-            `${item.path} (${item.kind}) ${item.source.width}x${item.source.height} -> ` +
-            `${safety.finalDimensions.width}x${safety.finalDimensions.height}, ${passes} pass(es)`
-        );
+        this.callbacks.onLog(msg('log.item', {
+            path: item.path,
+            kind: item.kind,
+            source: `${item.source.width}x${item.source.height}`,
+            target: `${safety.finalDimensions.width}x${safety.finalDimensions.height}`,
+            passes
+        }));
 
         if (item.kind === 'image') {
             await this.processImageItem(item, choice, passes, jobId, onProgress);
@@ -449,7 +455,7 @@ export class BatchController {
             onProgress
         );
 
-        if (!result.data) throw new Error('Worker returned no image data');
+        if (!result.data) throw new AppError('error.no_image_data');
 
         const dimensions = { width: result.width, height: result.height };
         assertExpectedDimensions(item, dimensions, passes);
@@ -476,7 +482,7 @@ export class BatchController {
             });
         }
 
-        this.callbacks.onLog(`  saved ${outputName} (${dimensions.width}x${dimensions.height})`);
+        this.callbacks.onLog(msg('log.saved', { name: outputName, size: `${dimensions.width}x${dimensions.height}` }));
     }
 
     private async processVideoItem(
@@ -507,13 +513,13 @@ export class BatchController {
         assertExpectedDimensions(item, { width: result.width, height: result.height }, passes);
 
         if (!outputHandle) {
-            if (!result.data) throw new Error('Worker returned no video data');
+            if (!result.data) throw new AppError('error.no_video_data');
             await this.writeOutput(outputName, new Uint8Array(result.data), 'video/mp4');
         }
 
         item.result = { width: result.width, height: result.height };
         item.outputName = outputName;
-        this.callbacks.onLog(`  saved ${outputName} (${result.width}x${result.height})`);
+        this.callbacks.onLog(msg('log.saved', { name: outputName, size: `${result.width}x${result.height}` }));
     }
 
     /**
@@ -545,7 +551,7 @@ export class BatchController {
 
     //=================== PDF ===========================
 
-    private async buildPdf(): Promise<{ name: string; notes: string[] }> {
+    private async buildPdf(): Promise<{ name: string; notes: Msg[] }> {
         // Queue order is already natural-sorted; keep it. Bytes are pulled in
         // one image at a time, straight off disk where possible.
         const inputs: PdfImageInput[] = this.processedImages.map((image) => ({
@@ -565,7 +571,7 @@ export class BatchController {
         );
 
         await this.writeOutput(name, result.bytes, 'application/pdf');
-        this.callbacks.onLog(`PDF written: ${name} (${result.pageCount} pages)`);
+        this.callbacks.onLog(msg('log.pdf', { name, pages: result.pageCount }));
 
         return { name, notes: result.notes };
     }
@@ -580,10 +586,11 @@ function assertExpectedDimensions(item: BatchItem, actual: Dimensions, passes: n
     const expected = dimensionsAfterPasses(item.source, passes);
     if (actual.width === expected.width && actual.height === expected.height) return;
 
-    throw new Error(
-        `Output size mismatch: expected ${expected.width}x${expected.height} ` +
-        `after ${passes} pass(es) but produced ${actual.width}x${actual.height}`
-    );
+    throw new AppError('error.size_mismatch', {
+        expected: `${expected.width}x${expected.height}`,
+        actual: `${actual.width}x${actual.height}`,
+        passes
+    });
 }
 
 //=================== Media probing ===========================
@@ -609,7 +616,7 @@ function readVideoDimensions(file: File): Promise<Dimensions> {
             const dimensions = { width: video.videoWidth, height: video.videoHeight };
             cleanup();
             if (!dimensions.width || !dimensions.height) {
-                reject(new Error('Could not read video dimensions'));
+                reject(new AppError('error.read_dimensions'));
                 return;
             }
             resolve(dimensions);
@@ -617,7 +624,7 @@ function readVideoDimensions(file: File): Promise<Dimensions> {
 
         video.onerror = () => {
             cleanup();
-            reject(new Error('Could not read video metadata'));
+            reject(new AppError('error.read_metadata'));
         };
 
         video.preload = 'metadata';

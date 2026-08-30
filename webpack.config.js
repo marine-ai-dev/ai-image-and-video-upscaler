@@ -13,6 +13,27 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 // in a normal build.
 const includeTestHarness = !!process.env.INCLUDE_TEST_HARNESS;
 
+// One HTML file per language, rendered at build time. Doing the translation
+// here rather than in the browser means each URL ships correct metadata and a
+// correct <html lang>, with no flash of the wrong language on load.
+const LOCALES = {
+    en: { dict: require('./src/locales/en.json'), ogLocale: 'en_GB' },
+    uk: { dict: require('./src/locales/uk.json'), ogLocale: 'uk_UA' }
+};
+
+function localePages() {
+    return Object.entries(LOCALES).map(([locale, { dict, ogLocale }]) => new HtmlWebpackPlugin({
+        template: 'src/index.html',
+        filename: `${locale}/index.html`,
+        chunks: includeTestHarness ? ['main'] : undefined,
+        templateParameters: {
+            locale,
+            ogLocale,
+            t: (key) => dict[key] ?? LOCALES.en.dict[key] ?? key
+        }
+    }));
+}
+
 module.exports = {
     entry: includeTestHarness
         ? {
@@ -23,7 +44,8 @@ module.exports = {
     output: {
         libraryExport: "default",
         path: path.resolve(__dirname, './dist'),
-        filename: includeTestHarness ? "[name].js" : "main.js"
+        filename: includeTestHarness ? "[name].js" : "main.js",
+        publicPath: '/'
     },
     module: {
 
@@ -55,9 +77,15 @@ module.exports = {
 
     plugins: [
 
+        ...localePages(),
+
+        // Root entry: sends visitors to the language they last chose, or the
+        // best match for their browser, without ever rendering the wrong one.
         new HtmlWebpackPlugin({
-            template: 'src/index.html',
-            ...(includeTestHarness ? { chunks: ['main'] } : {})
+            template: 'src/redirect.html',
+            filename: 'index.html',
+            inject: false,
+            minify: false
         }),
 
         ...(includeTestHarness ? [
@@ -84,6 +112,7 @@ module.exports = {
                 { from: "src/*.js", to: path.basename('[name].js') },
                 { from: "src/img/*.svg", to: path.basename('[name].svg') },
                 { from: "src/img/*.png", to: path.basename('[name].png') },
+                { from: "src/site.webmanifest", to: "site.webmanifest" },
                 {
                     context: "src/edit-images-app",
                     from: "**/*",

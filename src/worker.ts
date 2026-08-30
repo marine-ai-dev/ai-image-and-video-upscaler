@@ -17,6 +17,7 @@ import {
 } from 'mediabunny';
 
 import WebSR from '@websr/websr';
+import { AppError, toMsg } from './lib/app-error';
 
 import type {
   WorkerRequestMessage,
@@ -92,7 +93,7 @@ let cancelRequested = false;
 
 class CancelledError extends Error {
   constructor() {
-    super('Cancelled');
+    super('error.cancelled');
     this.name = 'CancelledError';
   }
 }
@@ -186,7 +187,7 @@ async function init(config: InitData): Promise<void> {
     ctx = original_canvas.getContext('bitmaprenderer');
   }
 
-  if (!upscaled_canvas) throw new Error('Preview canvases were never provided to the worker');
+  if (!upscaled_canvas) throw new AppError('error.no_canvas');
 
   // Release the previous preview instance before replacing it, otherwise its
   // buffers stay allocated for the lifetime of the page.
@@ -378,7 +379,7 @@ function getInstance(options: PassOptions, width: number, height: number): Insta
 
   const networkWeights = weightsCache.get(options.weightsKey);
   if (!networkWeights) {
-    throw new Error(`Weights "${options.weightsKey}" were not registered with the worker`);
+    throw new AppError('error.no_weights', { key: options.weightsKey });
   }
 
   const canvas = new OffscreenCanvas(width * NATIVE_SCALE, height * NATIVE_SCALE);
@@ -751,12 +752,12 @@ async function initRecording(
   const audioTrack = await input.getPrimaryAudioTrack();
 
   if (!videoTrack) {
-    throw new Error('The video does not have a video track');
+    throw new AppError('error.no_video_track');
   }
 
   const decodable = await videoTrack.canDecode();
   if (!decodable) {
-    throw new Error('The video could not be processed, is it a valid video file?');
+    throw new AppError('error.undecodable');
   }
 
   const inputWidth = videoTrack.displayWidth ?? videoTrack.codedWidth;
@@ -768,9 +769,7 @@ async function initRecording(
   // minutes upscaling frames that could never be muxed.
   const encodable = await canEncodeVideo('avc', { width: finalWidth, height: finalHeight });
   if (!encodable) {
-    throw new Error(
-      `This device cannot encode ${finalWidth}x${finalHeight} H.264 video. Try fewer passes.`
-    );
+    throw new AppError('error.cannot_encode', { width: finalWidth, height: finalHeight });
   }
 
   // For batch jobs the worker has no preview canvas, so pass 1 runs off-screen.
@@ -1002,9 +1001,9 @@ self.onmessage = async function (event: MessageEvent<WorkerRequestMessage>) {
     }
   } catch (error: any) {
     const cancelled = error instanceof CancelledError;
-    const message = cancelled ? 'Cancelled' : (error?.message || String(error));
+    const message = cancelled ? { key: 'error.cancelled' } : toMsg(error);
 
-    if (!cancelled) log('job failed', message, error);
+    if (!cancelled) log('job failed', error?.message || error, error);
 
     const request: any = event.data;
     const jobId = request?.data?.jobId;

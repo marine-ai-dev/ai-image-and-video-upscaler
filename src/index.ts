@@ -22,6 +22,19 @@ import {
 import { classifyFile } from './lib/media-files';
 import { BatchController, BatchItem } from './batch/controller';
 import { WorkerBridge } from './batch/worker-bridge';
+import {
+    Locale,
+    Msg,
+    detectLocale,
+    getLocale,
+    localeFromPath,
+    plural,
+    setLocale,
+    t,
+    tm,
+    tmAll
+} from './lib/i18n';
+import { toMsg } from './lib/app-error';
 
 import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -51,8 +64,6 @@ let websr: WebSR;
 let inputKind: 'video' | 'image' = 'video';
 let previewBitmap: ImageBitmap | null = null;
 let imageMimeType: string = 'image/png';
-let editImage: HTMLImageElement | null = null;
-let editImageName = 'edited-image.png';
 
 // Multi-pass settings for the single-file flow
 let singleSettings: UpscaleSettings = { mode: 'passes', passes: 1, targetLongEdge: 4096 };
@@ -99,14 +110,6 @@ function mountImageCompare(): void {
     new ImageCompare(document.getElementById('image-compare')).mount();
     imageCompareMounted = true;
 }
-
-const editFilters = {
-    brightness: 100,
-    contrast: 100,
-    saturation: 100,
-    blur: 0,
-    sepia: 0,
-};
 
 // AI model weights for different network sizes and content types
 type WeightsMap = {
@@ -175,221 +178,48 @@ declare global {
         startBatch: () => Promise<void>;
         cancelBatch: () => void;
         resetBatch: () => void;
-        setLanguage: (lang: Lang) => void;
+        rememberLocale: (locale: string) => void;
         toggleTheme: () => void;
         setPage: (page: PageKey) => void;
-        chooseEditImage: () => void;
-        updateEditFilter: (name: string, value: string) => void;
-        resetEditFilters: () => void;
-        downloadEditedImage: () => void;
     }
 }
 
-type Lang = 'en' | 'uk';
-
-const translations: Record<Lang, Record<string, string>> = {
-    en: {
-        'meta.title': 'Free AI tool for your tasks',
-        'meta.description': 'Browser-only AI video upscaler. Free, fast, no installs. Your video stays on your device.',
-        'meta.og_title': 'AI Video Upscaler',
-        'meta.og_description': 'Browser-only AI video upscaler. Free, fast, no installs. Your video stays on your device.',
-        'meta.twitter_title': 'AI Video Upscaler',
-        'meta.twitter_description': 'Browser-only AI video upscaler. Free, fast, no installs. Your video stays on your device.',
-        'brand.name': 'Image Editor by MarineAI',
-        'brand.tagline': 'Free AI tool for your tasks',
-        'hero.title': 'Free AI video upscaling tool',
-        'hero.subtitle': 'Upscale videos with AI for free. No sign-ups or registation.',
-        'hero.info': '<p>This is a simple browser tool for AI video upscaling. There is nothing to install and no account required. You select a video and your browser handles the AI processing and video encoding locally.</p><p>I built it because many popular tools are either paid and heavy, or open source but require a lot of setup. This tool is designed to be quick, free, and easy to use. It is based on my <a href="https://github.com/sb2702/websr" target="_blank">WebSR</a> SDK, which ports AI super‑resolution models like <a href="https://github.com/bloc97/Anime4K" target="_blank">Anime4K</a> and <a href="https://github.com/xinntao/Real-ESRGAN" target="_blank">Real‑ESRGAN</a> to WebGPU.</p>',
-        'unsupported.pre': 'Your browser does not support',
-        'unsupported.post': ', a required browser feature for this tool.',
-        'unsupported.try': 'Try the latest version of',
-        'unsupported.chrome': 'Chrome',
-        'unsupported.or': 'or',
-        'unsupported.edge': 'Edge',
-        'unsupported.device': 'on a laptop or desktop.',
-        'unsupported.link': 'For reference, here\'s how it should work',
-        'error.prefix': 'An error occurred while processing the video:',
-        'file.choose_title': 'Choose a video or image to upscale',
-        'file.choose_button': 'Single file',
-        'input.multiple': 'Multiple files',
-        'input.folder': 'Folder',
-        'input.include_subfolders': 'Include subfolders (folder mode)',
-        'input.hint': 'Supported: PNG, JPG, WebP images and MP4/MOV video. Everything is processed locally.',
-        'upscale.mode': 'Upscale mode',
-        'upscale.mode_passes': 'Number of passes',
-        'upscale.mode_target': 'Target resolution',
-        'upscale.passes': 'Passes',
-        'upscale.target': 'Target long edge (px)',
-        'upscale.target_hint': 'Aspect ratio is always preserved.',
-        'upscale.progression': 'Expected progression',
-        'upscale.final': 'Final expected resolution:',
-        'batch.title': 'Batch queue',
-        'batch.detected': 'Files detected:',
-        'batch.images': 'Images:',
-        'batch.videos': 'Videos:',
-        'batch.ignored': 'Ignored:',
-        'batch.start_over': 'Start over',
-        'batch.skipped_title': 'Ignored files',
-        'batch.apply_all': 'Apply to all',
-        'batch.output': 'Output folder',
-        'batch.choose_output': 'Choose…',
-        'batch.pdf': 'PDF',
-        'batch.pdf_create': 'Create PDF from processed images',
-        'batch.pdf_max': 'Maximum',
-        'batch.pdf_balanced': 'Balanced',
-        'batch.col_file': 'File',
-        'batch.col_type': 'Type',
-        'batch.col_source': 'Original',
-        'batch.col_passes': 'Passes',
-        'batch.col_expected': 'Expected output',
-        'batch.col_status': 'Status',
-        'batch.files_processed': 'files processed',
-        'batch.successful': 'successful',
-        'batch.failed': 'failed',
-        'batch.cancelled': 'cancelled',
-        'batch.saved_to': 'Saved to:',
-        'batch.pdf_created': 'PDF:',
-        'batch.log': 'Processing log',
-        'batch.process': 'PROCESS BATCH',
-        'batch.cancel': 'Cancel batch',
-        'preview.upscaling': 'Upscaling',
-        'preview.to': 'to',
-        'preview.input_size': 'Input size:',
-        'preview.output_size': 'Output size:',
-        'settings.network': 'Upscaling network',
-        'settings.small': 'Small',
-        'settings.medium': 'Medium',
-        'settings.large': 'Large',
-        'settings.tooltip': 'Small is faster, Large is slower but gives the most quality improvement',
-        'action.choose_output': 'Choose output location',
-        'action.start_upscaling': 'Start upscaling',
-        'action.back': 'Back',
-        'processing.prefix': 'Upscaling',
-        'processing.eta': 'Estimated time left:',
-        'complete.note': 'If you like the tool, please consider starring the project on GitHub.',
-        'complete.saved': 'Saved result to',
-        'complete.upscale_another': 'Upscale another',
-        'complete.download': 'Download',
-        'footer.source': '',
-        'footer.copyright': '© 2026',
-        'footer.contact': 'Contact',
-        'ads.label': 'Sponsored',
-        'ads.placeholder': 'Ad space (Google AdSense)',
-        'edit.title': 'Edit images',
-        'edit.subtitle': 'Upload an image, apply filters, and download it.',
-        'edit.upload': 'Upload image',
-        'edit.brightness': 'Brightness',
-        'edit.contrast': 'Contrast',
-        'edit.saturation': 'Saturation',
-        'edit.blur': 'Blur',
-        'edit.sepia': 'Sepia',
-        'edit.reset': 'Reset',
-        'edit.download': 'Download edited image',
-    },
-    uk: {
-        'meta.title': 'Free AI tool for your tasks',
-        'meta.description': 'Браузерний AI-апскейлер відео. Безкоштовно, швидко, без інсталяцій. Відео залишається на вашому пристрої.',
-        'meta.og_title': 'AI-апскейлер відео',
-        'meta.og_description': 'Браузерний AI-апскейлер відео. Безкоштовно, швидко, без інсталяцій. Відео залишається на вашому пристрої.',
-        'meta.twitter_title': 'AI-апскейлер відео',
-        'meta.twitter_description': 'Браузерний AI-апскейлер відео. Безкоштовно, швидко, без інсталяцій. Відео залишається на вашому пристрої.',
-        'brand.name': 'Image Editor by MarineAI',
-        'brand.tagline': 'Безкоштовний AI-інструмент для ваших завдань',
-        'hero.title': 'Безкоштовний AI-інструмент для апскейлінгу відео',
-        'hero.subtitle': 'Покращуйте відео за допомогою AI безкоштовно. Без інсталяцій і реєстрації. Усе працює локально у вашому браузері.',
-        'hero.info': '<p>Це простий браузерний інструмент для AI-апскейлінгу відео. Нічого встановлювати не потрібно, акаунт також не потрібен. Ви вибираєте відео, а браузер локально виконує обробку та кодування.</p><p>Я створив його, бо багато популярних інструментів або платні й складні, або з відкритим кодом, але потребують налаштувань. Цей інструмент — швидкий, безкоштовний і простий. Він базується на моєму SDK <a href="https://github.com/sb2702/websr" target="_blank">WebSR</a>, який переносить моделі супер‑роздільної здатності, такі як <a href="https://github.com/bloc97/Anime4K" target="_blank">Anime4K</a> та <a href="https://github.com/xinntao/Real-ESRGAN" target="_blank">Real‑ESRGAN</a>, у WebGPU.</p>',
-        'unsupported.pre': 'Ваш браузер не підтримує',
-        'unsupported.post': '— необхідну функцію для цього інструмента.',
-        'unsupported.try': 'Спробуйте останню версію',
-        'unsupported.chrome': 'Chrome',
-        'unsupported.or': 'або',
-        'unsupported.edge': 'Edge',
-        'unsupported.device': 'на ноутбуці або настільному ПК.',
-        'unsupported.link': 'Для наочності — ось як це має працювати',
-        'error.prefix': 'Сталася помилка під час обробки відео:',
-        'file.choose_title': 'Оберіть відео або зображення для апскейлу',
-        'file.choose_button': 'Один файл',
-        'input.multiple': 'Кілька файлів',
-        'input.folder': 'Тека',
-        'input.include_subfolders': 'Включати підтеки (режим теки)',
-        'input.hint': 'Підтримуються: PNG, JPG, WebP та відео MP4/MOV. Усе обробляється локально.',
-        'upscale.mode': 'Режим апскейлу',
-        'upscale.mode_passes': 'Кількість проходів',
-        'upscale.mode_target': 'Цільова роздільність',
-        'upscale.passes': 'Проходи',
-        'upscale.target': 'Цільова довга сторона (px)',
-        'upscale.target_hint': 'Співвідношення сторін завжди зберігається.',
-        'upscale.progression': 'Очікувана послідовність',
-        'upscale.final': 'Очікувана фінальна роздільність:',
-        'batch.title': 'Черга обробки',
-        'batch.detected': 'Знайдено файлів:',
-        'batch.images': 'Зображення:',
-        'batch.videos': 'Відео:',
-        'batch.ignored': 'Пропущено:',
-        'batch.start_over': 'Почати спочатку',
-        'batch.skipped_title': 'Пропущені файли',
-        'batch.apply_all': 'Застосувати до всіх',
-        'batch.output': 'Тека для результатів',
-        'batch.choose_output': 'Обрати…',
-        'batch.pdf': 'PDF',
-        'batch.pdf_create': 'Створити PDF з оброблених зображень',
-        'batch.pdf_max': 'Максимальна',
-        'batch.pdf_balanced': 'Збалансована',
-        'batch.col_file': 'Файл',
-        'batch.col_type': 'Тип',
-        'batch.col_source': 'Оригінал',
-        'batch.col_passes': 'Проходи',
-        'batch.col_expected': 'Очікуваний результат',
-        'batch.col_status': 'Статус',
-        'batch.files_processed': 'файлів оброблено',
-        'batch.successful': 'успішно',
-        'batch.failed': 'з помилкою',
-        'batch.cancelled': 'скасовано',
-        'batch.saved_to': 'Збережено у:',
-        'batch.pdf_created': 'PDF:',
-        'batch.log': 'Журнал обробки',
-        'batch.process': 'ОБРОБИТИ ПАКЕТ',
-        'batch.cancel': 'Скасувати пакет',
-        'preview.upscaling': 'Апскейлінг',
-        'preview.to': 'до',
-        'preview.input_size': 'Вхідний розмір:',
-        'preview.output_size': 'Вихідний розмір:',
-        'settings.network': 'Мережа апскейлінгу',
-        'settings.small': 'Мала',
-        'settings.medium': 'Середня',
-        'settings.large': 'Велика',
-        'settings.tooltip': 'Мала — швидша, велика — повільніша, але з кращою якістю',
-        'action.choose_output': 'Оберіть місце збереження',
-        'action.start_upscaling': 'Почати апскейлінг',
-        'action.back': 'Назад',
-        'processing.prefix': 'Апскейлінг',
-        'processing.eta': 'Орієнтовний час:',
-        'complete.note': 'Якщо вам сподобався інструмент, підтримайте проєкт зіркою на GitHub.',
-        'complete.saved': 'Результат збережено у',
-        'complete.upscale_another': 'Апскейлити ще одне',
-        'complete.download': 'Завантажити',
-        'footer.source': '',
-        'footer.copyright': '© 2026',
-        'footer.contact': 'Контакт',
-        'ads.label': 'Реклама',
-        'ads.placeholder': 'Місце для реклами (Google AdSense)',
-        'edit.title': 'Редагувати зображення',
-        'edit.subtitle': 'Завантажте зображення, застосуйте фільтри та завантажте результат.',
-        'edit.upload': 'Завантажити зображення',
-        'edit.brightness': 'Яскравість',
-        'edit.contrast': 'Контраст',
-        'edit.saturation': 'Насиченість',
-        'edit.blur': 'Розмиття',
-        'edit.sepia': 'Сепія',
-        'edit.reset': 'Скинути',
-        'edit.download': 'Завантажити зображення',
-    }
-};
-
-const supportedLangs: Lang[] = ['en', 'uk'];
-let currentLang: Lang = 'en';
 type ThemeMode = 'light' | 'dark';
 let currentTheme: ThemeMode = 'light';
+
+/**
+ * The page itself is already rendered in one language (webpack builds /en/ and
+ * /uk/ separately), so this only tells the runtime which dictionary to use for
+ * strings built in JavaScript, and remembers the choice for the root redirect.
+ */
+function initLocale(): void {
+    let stored: string | null = null;
+    try { stored = localStorage.getItem('lang'); } catch (e) { /* private mode */ }
+
+    const fromPath = localeFromPath(location.pathname);
+    const locale = fromPath || detectLocale(stored, navigator.languages || [navigator.language]);
+    setLocale(locale);
+    if (fromPath) rememberLocale(fromPath);
+}
+
+/** Remember the language so the root URL sends the user back to it. */
+function rememberLocale(locale: string): void {
+    try { localStorage.setItem('lang', locale); } catch (e) { /* private mode */ }
+}
+
+window.rememberLocale = rememberLocale;
+
+/** The editor iframe is a separate app; it takes language and theme by URL. */
+function editorFrameUrl(): string {
+    return `/edit-images/index.html?lang=${getLocale()}&theme=${currentTheme}`;
+}
+
+function syncEditorFrame(): void {
+    const frame = document.getElementById('edit-frame') as HTMLIFrameElement | null;
+    if (!frame) return;
+    const next = editorFrameUrl();
+    if (frame.getAttribute('src') !== next) frame.setAttribute('src', next);
+}
 type PageKey = 'home' | 'upscaler' | 'filters';
 
 document.addEventListener("DOMContentLoaded", index);
@@ -400,8 +230,12 @@ document.addEventListener("DOMContentLoaded", index);
  * Main initialization function called on page load
  */
 async function index(): Promise<void> {
+    // The locale must be known before any store is filled, otherwise labels
+    // built here (plurals, status names) would be rendered in the default one.
+    initLocale();
+
     Alpine.store('state', 'init');
-    Alpine.store('networkSizeLabel', 'Medium');
+    Alpine.store('networkSizeLabel', t('settings.medium'));
     Alpine.store('page', 'upscaler');
 
     // Multi-pass plan for the single-file flow
@@ -409,6 +243,9 @@ async function index(): Promise<void> {
     Alpine.store('passes', singleSettings.passes);
     Alpine.store('targetLongEdge', singleSettings.targetLongEdge);
     Alpine.store('maxPasses', MAX_PASSES);
+    Alpine.store('passOptionLabels', Object.fromEntries(
+        Array.from({ length: MAX_PASSES }, (_, i) => [i + 1, plural('batch.option_passes', i + 1)])
+    ));
     Alpine.store('nativeScale', NATIVE_SCALE);
     Alpine.store('plan', { progression: [], final: '', note: '', safetyLevel: 'ok', safetyMessage: '' });
 
@@ -419,7 +256,6 @@ async function index(): Promise<void> {
     Alpine.start();
     document.body.style.display = "block";
 
-    initLanguage();
     initTheme();
 
     upscaled_canvas = document.getElementById("upscaled") as HTMLCanvasElement;
@@ -437,7 +273,6 @@ async function index(): Promise<void> {
     window.switchNetworkSize = switchNetworkSize;
     window.initRecording = initRecording;
     window.setPage = setPage;
-    initEditImageTools();
 }
 
 //===================  Multi-pass planning (single file) ===========================
@@ -475,17 +310,22 @@ function updatePlan(): void {
     const passes = resolvePasses(source, singleSettings, MAX_PASSES);
     const final = resolveFinalDimensions(source, singleSettings, MAX_PASSES);
 
-    const progression = passProgression(source, passes).map((d, i) => `Pass ${i + 1} → ${formatDimensions(d)}`);
+    const progression = passProgression(source, passes)
+        .map((d, i) => t('plan.pass_line', { pass: i + 1, size: formatDimensions(d) }));
 
     let note = '';
     if (singleSettings.mode === 'target') {
         const plan = planForTarget(source, singleSettings.targetLongEdge, MAX_PASSES);
         if (plan.alreadyAtOrAboveTarget) {
-            note = `Source is already ${Math.max(source.width, source.height)}px on its long edge; ` +
-                `running 1 pass gives ${formatDimensions(final)}.`;
+            note = t('plan.already_above', {
+                edge: Math.max(source.width, source.height),
+                result: formatDimensions(final)
+            });
         } else if (!plan.exact) {
-            note = `Requested ${plan.requestedLongEdge}px long edge → native AI result ${formatDimensions(final)}` +
-                (plan.cappedByMaxPasses ? ` (limited to ${MAX_PASSES} passes)` : '');
+            note = t('plan.requested', {
+                requested: plan.requestedLongEdge,
+                result: formatDimensions(final)
+            }) + (plan.cappedByMaxPasses ? t('plan.capped', { max: MAX_PASSES }) : '');
         }
     }
 
@@ -505,7 +345,7 @@ function updatePlan(): void {
         final: formatDimensions(final),
         note,
         safetyLevel: safety.level,
-        safetyMessage: safety.reasons.join(' ')
+        safetyMessage: tmAll(safety.reasons).join(' ')
     });
 }
 
@@ -562,8 +402,9 @@ function initBatch(): void {
     batch = new BatchController(bridge, currentNetworkChoice, {
         onChange: publishBatch,
         onLog: (message) => {
-            console.log('[batch]', message);
-            batchLog.push(message);
+            const text = tm(message);
+            console.log('[batch]', text);
+            batchLog.push(text);
             if (batchLog.length > 200) batchLog.shift();
         }
     });
@@ -633,15 +474,22 @@ function publishBatch(): void {
             id: item.id,
             path: item.path,
             name: item.name,
-            kindLabel: item.kind === 'image' ? 'Image' : 'Video',
+            kindLabel: item.kind === 'image' ? t('batch.kind_image') : t('batch.kind_video'),
             source: formatDimensions(item.source),
-            modeLabel: settings.mode === 'passes' ? 'Passes' : 'Target',
-            settingLabel: settings.mode === 'passes' ? `${passes}` : `${settings.targetLongEdge}px → ${passes}p`,
+            modeLabel: settings.mode === 'passes' ? t('batch.mode_passes') : t('batch.mode_target'),
+            settingLabel: settings.mode === 'passes'
+                ? `${passes}`
+                : t('batch.setting_target', { target: settings.targetLongEdge, passes }),
             overrideValue: item.override ? String(item.override.passes) : 'global',
             expected: formatDimensions(expected),
             status: item.status,
-            statusLabel: statusLabel(item),
-            error: item.error || '',
+            statusLabel: t(`status.${item.status}`),
+            globalLabel: t('batch.option_global', {
+                setting: settings.mode === 'passes'
+                    ? `${passes}`
+                    : t('batch.setting_target', { target: settings.targetLongEdge, passes })
+            }),
+            error: tm(item.error),
             outputName: item.outputName || '',
             blocked: report.level === 'block',
             warn: report.level === 'warn'
@@ -656,34 +504,41 @@ function publishBatch(): void {
         running: batch.running,
         cancelling: batch.cancelling,
         counts,
-        skipped: batch.skipped.slice(0, 20),
+        skipped: batch.skipped.slice(0, 20).map((entry) => ({ name: entry.name, reason: tm(entry.reason) })),
         items,
         global: { ...batch.global },
         options: { ...batch.options },
-        outputLabel: batch.outputDirectoryLabel,
-        safety,
-        progressText: batch.running ? `${completed} / ${batch.items.length} files completed` : '',
+        outputLabel: batch.outputDirectoryLabel || t('batch.downloads'),
+        safety: {
+            level: safety.level,
+            reasons: safety.reasons.map((entry) => `${entry.name}: ${tm(entry.reason)}`)
+        },
+        progressText: batch.running
+            ? t('batch.progress', { completed, total: batch.items.length })
+            : '',
         currentName: current ? current.name : '',
         currentPass: current?.passProgress
             ? (current.kind === 'video'
                 ? `${current.passProgress.percent}%`
-                : `Pass ${current.passProgress.pass} / ${current.passProgress.passes}`)
+                : t('batch.current_pass', { pass: current.passProgress.pass, passes: current.passProgress.passes }))
             : '',
         completed,
-        summary: batch.summary,
+        summary: batch.summary ? {
+            ...batch.summary,
+            outputLocation: tm(batch.summary.outputLocation),
+            pdfNotes: tmAll(batch.summary.pdfNotes)
+        } : null,
+        summaryText: batch.summary
+            ? t('batch.summary', {
+                total: batch.summary.total,
+                successful: batch.summary.successful,
+                failed: batch.summary.failed
+            }) + (batch.summary.cancelled
+                ? t('batch.summary_cancelled', { cancelled: batch.summary.cancelled })
+                : '')
+            : '',
         log: batchLog.slice(-8)
     });
-}
-
-function statusLabel(item: BatchItem): string {
-    switch (item.status) {
-        case 'waiting': return 'Ready';
-        case 'processing': return 'Processing';
-        case 'complete': return 'Complete';
-        case 'failed': return 'Failed';
-        case 'cancelled': return 'Cancelled';
-        default: return 'Skipped';
-    }
 }
 
 function setItemOverride(id: string, value: string): void {
@@ -703,7 +558,7 @@ async function chooseFiles(): Promise<void> {
     try {
         const handles = await window.showOpenFilePicker({
             types: [{
-                description: 'Video or Image Files',
+                description: t('file.picker_media'),
                 accept: {
                     'video/mp4': ['.mp4', '.m4v'],
                     'video/quicktime': ['.mov'],
@@ -735,7 +590,7 @@ async function chooseFiles(): Promise<void> {
  */
 async function chooseFolder(): Promise<void> {
     if (!window.showDirectoryPicker) {
-        return showError('This browser does not support folder selection. Use Chrome or Edge on desktop.');
+        return showError({ key: 'error.no_folder_support' });
     }
 
     try {
@@ -798,50 +653,9 @@ function showUnsupported(text: string): void {
     Alpine.store('state', 'unsupported');
 }
 
-function initLanguage(): void {
-    const stored = localStorage.getItem('lang');
-    const browser = (navigator.language || '').slice(0, 2).toLowerCase();
-    const initial = (stored as Lang) || (supportedLangs.includes(browser as Lang) ? (browser as Lang) : 'en');
-    setLanguage(initial);
-}
-
-function setLanguage(lang: Lang): void {
-    if (!supportedLangs.includes(lang)) return;
-    currentLang = lang;
-    localStorage.setItem('lang', lang);
-
-    document.documentElement.setAttribute('lang', lang);
-    const dict = translations[lang];
-
-    const textNodes = document.querySelectorAll<HTMLElement>('[data-i18n]');
-    textNodes.forEach((node) => {
-        const key = node.getAttribute('data-i18n');
-        if (!key || !dict[key]) return;
-        const attr = node.getAttribute('data-i18n-attr');
-        if (attr) {
-            node.setAttribute(attr, dict[key]);
-        } else {
-            node.textContent = dict[key];
-        }
-    });
-
-    const htmlNodes = document.querySelectorAll<HTMLElement>('[data-i18n-html]');
-    htmlNodes.forEach((node) => {
-        const key = node.getAttribute('data-i18n-html');
-        if (!key || !dict[key]) return;
-        node.innerHTML = dict[key];
-    });
-
-    const langButtons = document.querySelectorAll<HTMLButtonElement>('.lang-btn');
-    langButtons.forEach((btn) => {
-        btn.classList.toggle('is-active', btn.dataset.lang === lang);
-    });
-}
-
-window.setLanguage = setLanguage;
-
 function setPage(page: PageKey): void {
     Alpine.store('page', page);
+    if (page === 'filters') syncEditorFrame();
 }
 
 window.setPage = setPage;
@@ -857,6 +671,8 @@ function setTheme(theme: ThemeMode): void {
     currentTheme = theme;
     localStorage.setItem('theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
+    // The editor renders in its own document, so it needs the new theme too.
+    syncEditorFrame();
 }
 
 function toggleTheme(): void {
@@ -866,122 +682,14 @@ function toggleTheme(): void {
 
 window.toggleTheme = toggleTheme;
 
-function initEditImageTools(): void {
-    const input = document.getElementById('edit-image-input') as HTMLInputElement | null;
-    if (!input) return;
-
-    input.addEventListener('change', async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        editImageName = file.name.replace(/\.[^/.]+$/, '') + '-edited.png';
-
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-            editImage = img;
-            drawEditedImage();
-            URL.revokeObjectURL(url);
-        };
-        img.src = url;
-    });
-
-    window.chooseEditImage = () => input.click();
-    window.updateEditFilter = updateEditFilter;
-    window.resetEditFilters = resetEditFilters;
-    window.downloadEditedImage = downloadEditedImage;
-
-    updateEditFilterLabels();
-}
-
-function editFilterString(): string {
-    return `brightness(${editFilters.brightness}%) contrast(${editFilters.contrast}%) saturate(${editFilters.saturation}%) blur(${editFilters.blur}px) sepia(${editFilters.sepia}%)`;
-}
-
-function drawEditedImage(): void {
-    if (!editImage) return;
-    const canvas = document.getElementById('edit-preview-canvas') as HTMLCanvasElement | null;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = editImage.naturalWidth;
-    canvas.height = editImage.naturalHeight;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.filter = editFilterString();
-    ctx.drawImage(editImage, 0, 0);
-    ctx.filter = 'none';
-}
-
-function updateEditFilter(name: string, value: string): void {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return;
-    if (!(name in editFilters)) return;
-    (editFilters as Record<string, number>)[name] = numeric;
-    updateEditFilterLabels();
-    drawEditedImage();
-}
-
-function updateEditFilterLabels(): void {
-    const labelMap: Record<string, string> = {
-        brightness: `${Math.round(editFilters.brightness)}%`,
-        contrast: `${Math.round(editFilters.contrast)}%`,
-        saturation: `${Math.round(editFilters.saturation)}%`,
-        blur: `${editFilters.blur.toFixed(1).replace(/\.0$/, '')}px`,
-        sepia: `${Math.round(editFilters.sepia)}%`,
-    };
-    Object.entries(labelMap).forEach(([key, text]) => {
-        const label = document.getElementById(`edit-${key}-value`);
-        if (label) label.textContent = text;
-    });
-}
-
-function resetEditFilters(): void {
-    editFilters.brightness = 100;
-    editFilters.contrast = 100;
-    editFilters.saturation = 100;
-    editFilters.blur = 0;
-    editFilters.sepia = 0;
-
-    (document.getElementById('edit-brightness') as HTMLInputElement | null)?.setAttribute('value', '100');
-    (document.getElementById('edit-contrast') as HTMLInputElement | null)?.setAttribute('value', '100');
-    (document.getElementById('edit-saturation') as HTMLInputElement | null)?.setAttribute('value', '100');
-    (document.getElementById('edit-blur') as HTMLInputElement | null)?.setAttribute('value', '0');
-    (document.getElementById('edit-sepia') as HTMLInputElement | null)?.setAttribute('value', '0');
-
-    const b = document.getElementById('edit-brightness') as HTMLInputElement | null;
-    const c = document.getElementById('edit-contrast') as HTMLInputElement | null;
-    const s = document.getElementById('edit-saturation') as HTMLInputElement | null;
-    const bl = document.getElementById('edit-blur') as HTMLInputElement | null;
-    const sp = document.getElementById('edit-sepia') as HTMLInputElement | null;
-    if (b) b.value = '100';
-    if (c) c.value = '100';
-    if (s) s.value = '100';
-    if (bl) bl.value = '0';
-    if (sp) sp.value = '0';
-
-    updateEditFilterLabels();
-    drawEditedImage();
-}
-
-function downloadEditedImage(): void {
-    const canvas = document.getElementById('edit-preview-canvas') as HTMLCanvasElement | null;
-    if (!canvas || !canvas.width || !canvas.height) return;
-
-    const url = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = editImageName;
-    link.click();
-}
-
 /**
- * Prompt user to choose a video file using File System Access API
+ * Prompt for a single image or video using the File System Access API.
  */
 async function chooseFile(e?: Event): Promise<void> {
     try {
         const [fileHandle] = await window.showOpenFilePicker({
             types: [{
-                description: 'Video or Image Files',
+                description: t('file.picker_media'),
                 accept: {
                     'video/mp4': ['.mp4', '.m4v'],
                     'video/quicktime': ['.mov'],
@@ -1004,11 +712,11 @@ async function chooseFile(e?: Event): Promise<void> {
             } else if (kind === 'video') {
                 await loadVideo(fileHandle, file);
             } else {
-                showError(`Unsupported file type: ${file.name}`);
+                showError({ key: 'error.unsupported_file', params: { name: file.name } });
             }
         } catch (error: any) {
             console.error('Failed to load file', error);
-            showError(error?.message || String(error));
+            showError(toMsg(error));
         }
     } catch (e) {
         // User cancelled file picker
@@ -1196,7 +904,10 @@ async function setupPreview(data: ArrayBuffer, mimeType: string = 'video/mp4'): 
         const quota = (await navigator.storage.estimate()).quota;
 
         if(estimated_size > quota){
-            return showError(`The video is too big. It would output a file of ${humanFileSize(estimated_size)} but the browser can only write files up to ${humanFileSize(quota)}`);
+            return showError({
+                key: 'error.video_too_big',
+                params: { size: humanFileSize(estimated_size), quota: humanFileSize(quota) }
+            });
         }
 
 
@@ -1288,7 +999,7 @@ async function switchNetworkSize(el: HTMLInputElement): Promise<void> {
         updatePlan();
         if (batch) publishBatch();
     }
-    Alpine.store('networkSizeLabel', size.charAt(0).toUpperCase() + size.slice(1));
+    Alpine.store('networkSizeLabel', t(`settings.${size}`));
 }
 
 /**
@@ -1363,7 +1074,7 @@ worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
 
     } else if (event.data.cmd === 'pass') {
         const { pass, passes, width, height } = event.data.data;
-        Alpine.store('passStatus', `Pass ${pass} / ${passes} → ${width} x ${height}`);
+        Alpine.store('passStatus', t('pass.status', { pass, passes, width, height }));
 
     } else if (event.data.cmd === 'progress') {
         Alpine.store('progress', event.data.data);
@@ -1376,7 +1087,7 @@ worker.onmessage = function (event: MessageEvent<WorkerResponseMessage>) {
         showError(event.data.data);
 
     } else if (event.data.cmd === 'eta') {
-        Alpine.store('eta', event.data.data);
+        Alpine.store('eta', event.data.data === 'calculating...' ? t('processing.calculating') : event.data.data);
 
     } else if (event.data.cmd === 'finished') {
         Alpine.store('state', 'complete');
@@ -1438,7 +1149,7 @@ async function initRecording(): Promise<void> {
             pngOutput: inputKind === 'image' ? imageMimeType === 'image/png' : false
         });
         if (safety.level === 'block') {
-            return showError(safety.reasons.join(' '));
+            return showError(tmAll(safety.reasons).join(' '));
         }
     }
 
@@ -1494,9 +1205,9 @@ async function initRecording(): Promise<void> {
 /**
  * Display error message to user
  */
-function showError(message: string): void {
+function showError(message: Msg | string): void {
     Alpine.store('state', 'error');
-    Alpine.store('error', message);
+    Alpine.store('error', typeof message === 'string' ? message : tm(message));
 }
 
 /**
@@ -1545,7 +1256,7 @@ async function showFilePicker(): Promise<FileSystemFileHandle> {
         startIn: 'downloads',
         suggestedName: download_name,
         types: [{
-            description: 'Video File',
+            description: t('file.picker_video'),
             accept: { 'video/mp4': ['.mp4'] }
         }],
     });

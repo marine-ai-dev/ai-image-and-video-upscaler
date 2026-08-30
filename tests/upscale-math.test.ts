@@ -118,8 +118,9 @@ test('safety blocks passes that exceed the real GPU texture limit', () => {
 
     const blocked = evaluateSafety({ source: SQUARE, passes: 4, caps });
     assert.equal(blocked.level, 'block');
-    assert.match(blocked.reasons[0], /16384x16384/);
-    assert.match(blocked.reasons[0], /8192px per side/);
+    assert.equal(blocked.reasons[0].key, 'safety.block_texture');
+    assert.equal(blocked.reasons[0].params!.width, 16384);
+    assert.equal(blocked.reasons[0].params!.limit, 8192);
 });
 
 test('safety blocks when an intermediate buffer exceeds the storage limit', () => {
@@ -128,7 +129,7 @@ test('safety blocks when an intermediate buffer exceeds the storage limit', () =
     const report = evaluateSafety({ source: SQUARE, passes: 3, caps });
     assert.equal(report.level, 'block');
     assert.equal(report.maxSafePasses, 2);
-    assert.match(report.reasons[0], /intermediate GPU buffer/);
+    assert.equal(report.reasons[0].key, 'safety.block_buffer');
 });
 
 test('safety warns (but does not block) for very large but possible outputs', () => {
@@ -136,7 +137,8 @@ test('safety warns (but does not block) for very large but possible outputs', ()
     const report = evaluateSafety({ source: SQUARE, passes: 4, caps });
     assert.equal(report.level, 'warn');
     assert.deepEqual(report.finalDimensions, { width: 16384, height: 16384 });
-    assert.match(report.reasons[0], /16384x16384/);
+    assert.equal(report.reasons[0].key, 'safety.warn_size');
+    assert.equal(report.reasons[0].params!.width, 16384);
 });
 
 test('peak memory counts every pass, not just the largest one', () => {
@@ -172,7 +174,8 @@ test('an allowed texture size can still be blocked by working memory', () => {
         source: SQUARE, passes: 2, networkSize: 'medium', caps, memoryBudgetBytes: budget
     });
     assert.equal(twoPasses.level, 'warn');
-    assert.match(twoPasses.reasons[0], /4096x4096/);
+    assert.equal(twoPasses.reasons[0].key, 'safety.warn_memory');
+    assert.equal(twoPasses.reasons[0].params!.width, 4096);
 
     // ...but three passes need ~4.9 GiB of working memory, which is not.
     const threePasses = evaluateSafety({
@@ -180,8 +183,10 @@ test('an allowed texture size can still be blocked by working memory', () => {
     });
     assert.equal(threePasses.level, 'block');
     assert.equal(threePasses.maxSafePasses, 2);
-    assert.match(threePasses.reasons[0], /working\s+memory/);
-    assert.match(threePasses.reasons[1], /up to 2 passes \(4096 x 4096\)/);
+    assert.equal(threePasses.reasons[0].key, 'safety.block_memory');
+    assert.equal(threePasses.reasons[1].key, 'safety.supports_up_to');
+    assert.equal(threePasses.reasons[1].params!.passes, 2);
+    assert.equal(threePasses.reasons[1].params!.size, '4096 x 4096');
 });
 
 test('memory checks are skipped when no budget is known', () => {
