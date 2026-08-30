@@ -17,19 +17,26 @@ const includeTestHarness = !!process.env.INCLUDE_TEST_HARNESS;
 // here rather than in the browser means each URL ships correct metadata and a
 // correct <html lang>, with no flash of the wrong language on load.
 const LOCALES = {
-    en: { dict: require('./src/locales/en.json'), ogLocale: 'en_GB' },
-    uk: { dict: require('./src/locales/uk.json'), ogLocale: 'uk_UA' }
+    en: { file: './src/locales/en.json', ogLocale: 'en_GB' },
+    uk: { file: './src/locales/uk.json', ogLocale: 'uk_UA' }
 };
 
+// Read the dictionary on every render rather than once at config load, so
+// editing a locale file is picked up by the dev server without a restart.
+function readDict(file) {
+    delete require.cache[require.resolve(file)];
+    return require(file);
+}
+
 function localePages() {
-    return Object.entries(LOCALES).map(([locale, { dict, ogLocale }]) => new HtmlWebpackPlugin({
+    return Object.entries(LOCALES).map(([locale, { file, ogLocale }]) => new HtmlWebpackPlugin({
         template: 'src/index.html',
         filename: `${locale}/index.html`,
         chunks: includeTestHarness ? ['main'] : undefined,
         templateParameters: {
             locale,
             ogLocale,
-            t: (key) => dict[key] ?? LOCALES.en.dict[key] ?? key
+            t: (key) => readDict(file)[key] ?? readDict(LOCALES.en.file)[key] ?? key
         }
     }));
 }

@@ -157,15 +157,17 @@ body {
     flex-direction: column;
 }
 
-.brand-name {
+.brand-product {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 1.6rem;
+    font-size: 1.35rem;
     font-weight: 700;
+    line-height: 1.15;
 }
 
-.brand-tagline {
+.brand-by {
     color: var(--muted);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    margin-top: 2px;
 }
 
 .lang-switch {

@@ -63,8 +63,8 @@ export async function buildImagePdf(
     const notes: Msg[] = [];
 
     const pdf = await PDFDocument.create();
-    pdf.setProducer('Marine AI Dev - AI Image & Video Upscaler');
-    pdf.setCreator('Marine AI Dev - AI Image & Video Upscaler');
+    pdf.setProducer('MarineAI - AI image & video upscaler');
+    pdf.setCreator('MarineAI - AI image & video upscaler');
 
     let pageCount = 0;
     let embeddedBytes = 0;

@@ -5,8 +5,6 @@
   "meta.og_description": "Upscale images and video with AI directly in your browser. Files are processed locally and never uploaded.",
   "meta.twitter_title": "AI Image & Video Upscaler",
   "meta.twitter_description": "Upscale images and video with AI directly in your browser. Files are processed locally and never uploaded.",
-  "brand.name": "Marine AI Dev",
-  "brand.tagline": "AI Image & Video Upscaler",
   "nav.menu": "Menu",
   "nav.home": "Home",
   "nav.upscaler": "AI Upscaler",
@@ -175,5 +173,7 @@
   "edit.subtitle": "Crop, adjust colour, apply filters and retouch — all processed on your device.",
   "edit.frame_title": "Image editor",
   "ads.label": "Sponsored",
-  "ads.placeholder": "Ad space"
+  "ads.placeholder": "Ad space",
+  "brand.product": "AI image & video upscaler",
+  "brand.by": "by MarineAI"
 }
