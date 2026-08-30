@@ -1,8 +1,26 @@
 {
-  "name": "free-video-upscaler",
-  "version": "0.1.0",
-  "description": "Free tool to upscale videos in the browser",
-  "main": "src/main.js",
+  "name": "ai-image-and-video-upscaler",
+  "version": "1.0.0",
+  "description": "Marine AI Dev - AI image and video upscaler that runs entirely in the browser, with batch processing, PDF export and a built-in image editor.",
+  "keywords": [
+    "upscaling",
+    "super-resolution",
+    "webgpu",
+    "image",
+    "video",
+    "browser",
+    "ai"
+  ],
+  "license": "MIT",
+  "author": "marine-ai-dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marine-ai-dev/ai-image-and-video-upscaler.git"
+  },
+  "bugs": {
+    "url": "https://github.com/marine-ai-dev/ai-image-and-video-upscaler/issues"
+  },
+  "homepage": "https://github.com/marine-ai-dev/ai-image-and-video-upscaler#readme",
   "scripts": {
     "build": "webpack",
     "serve": "webpack-dev-server",
@@ -10,16 +28,6 @@
     "test": "node --test \"tests/**/*.test.ts\"",
     "type-check": "tsc --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/sb2702/free-ai-video-upscaler.git"
-  },
-  "author": "Sam Bhattacharyya",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/sb2702/free-ai-video-upscaler/issues"
-  },
-  "homepage": "https://github.com/sb2702/free-ai-video-upscaler#readme",
   "dependencies": {
     "@babel/core": "^7.1.6",
     "@popperjs/core": "^2.11.8",
