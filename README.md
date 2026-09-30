@@ -218,6 +218,24 @@ is set and never ships in a normal build.
 
 ---
 
+## Deployment
+
+The build is a set of static files, so any static host works. The bundled
+`server.js` is a dependency-free Node server that serves `dist/` on `$PORT`,
+which is what the production deployment runs:
+
+```bash
+npm run build
+npm start          # serves dist/ on $PORT (default 8080)
+```
+
+On Railway, `railway up` from the repository root is enough — the build and
+start scripts are detected automatically, no configuration file needed. A
+secure origin is required in production: WebGPU and the File System Access API
+only work over HTTPS.
+
+---
+
 ## Limitations
 
 * Desktop Chrome or Edge only — other browsers lack the required APIs.
