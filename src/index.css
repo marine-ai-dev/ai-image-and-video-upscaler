@@ -312,6 +312,34 @@ body {
     color: var(--muted);
 }
 
+/* Tailwind's preflight makes every <img> display:block, which stacked the
+   Chrome/Edge badges on their own lines above the hint. Keep them inline. */
+.panel-text img {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0 2px;
+}
+
+/* Before/after viewer. The worker renders the upscaled preview of a transparent
+   image against the matte colour #fffaf2 (createMattedImageBitmap in worker.ts;
+   the downloaded PNG gets its real alpha back separately). The original half is
+   transparent, so without this it showed the dark page behind it in dark theme
+   and the two halves looked like different images. Give it the same matte, in
+   both themes, so the slider compares like with like. */
+#original {
+    background-color: #fffaf2;
+}
+
+/* Shown under the before/after viewer once an upscale has finished. */
+.completion-note {
+    margin: 14px auto 0;
+    max-width: 560px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
 .panel-title {
     font-size: 1.5rem;
     font-weight: 600;
@@ -557,11 +585,16 @@ video {
 @media (max-width: 700px) {
     .page {
         padding: 20px 16px 48px;
-        grid-template-columns: 1fr;
+        /* `1fr` alone means minmax(auto, 1fr): the column grows to the
+           min-content width of its widest child and spills past the right
+           edge of the viewport, where it is clipped. minmax(0, 1fr) keeps the
+           track at the viewport width and lets children wrap instead. */
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .content {
         max-width: 100%;
+        min-width: 0;
     }
 
     .sidebar {
@@ -597,6 +630,28 @@ video {
     .fullscreen-icon {
         right: 18px;
         top: 18px;
+    }
+
+    /* index.ts sizes the viewer with an inline pixel width/height (318px tall,
+       aspect-correct width), which is wider than a phone panel and was clipped.
+       Cap it to the panel and let the height follow the canvas aspect ratio. */
+    #image-compare-outer:not(:fullscreen) {
+        max-width: 100%;
+        height: auto !important;
+    }
+
+    /* The three menu links are a row that cannot shrink below its min-content
+       width; at 320px that pushed the card past the viewport. Let it wrap. */
+    .menu-card {
+        width: 100%;
+    }
+
+    .sidebar-nav {
+        flex-wrap: wrap;
+    }
+
+    .sidebar-link {
+        padding: 8px 10px;
     }
 }
 

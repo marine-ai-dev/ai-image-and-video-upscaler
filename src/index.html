@@ -8,23 +8,26 @@
     <meta name="description" content="<%= t('meta.description') %>">
     <meta property="og:title" content="<%= t('meta.og_title') %>">
     <meta property="og:description" content="<%= t('meta.og_description') %>">
-    <meta property="og:image" content="/logo.png">
+    <meta property="og:image" content="<%= siteUrl %>/logo.png">
+    <meta property="og:url" content="<%= siteUrl %>/<%= locale %>/">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="<%= ogLocale %>">
     <meta name="twitter:card" content="summary">
     <meta property="twitter:title" content="<%= t('meta.twitter_title') %>">
     <meta property="twitter:description" content="<%= t('meta.twitter_description') %>">
-    <meta property="twitter:image" content="/logo.png">
+    <meta property="twitter:image" content="<%= siteUrl %>/logo.png">
     <meta name="theme-color" content="#cc6b2c">
 
-    <link rel="alternate" hreflang="en" href="/en/">
-    <link rel="alternate" hreflang="uk" href="/uk/">
-    <link rel="alternate" hreflang="x-default" href="/en/">
+    <link rel="canonical" href="<%= siteUrl %>/<%= locale %>/">
+    <link rel="alternate" hreflang="en" href="<%= siteUrl %>/en/">
+    <link rel="alternate" hreflang="uk" href="<%= siteUrl %>/uk/">
+    <link rel="alternate" hreflang="x-default" href="<%= siteUrl %>/en/">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=Rubik:wght@300;400;600;700&display=swap" rel="stylesheet">
 
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -157,11 +160,6 @@
             </label>
 
             <p class="panel-hint"><%= t('input.hint') %></p>
-        </div>
-
-        <div class="ad-frame" x-show="$store.state === 'init'">
-            <div class="ad-label"><%= t('ads.label') %></div>
-            <div class="ad-placeholder"><%= t('ads.placeholder') %></div>
         </div>
 
         <div id="start-panel" class="panel panel--tall"
@@ -513,11 +511,6 @@
                 <button type="button" class="action-btn action-btn--ghost action-btn--wide" onclick="cancelBatch()"
                         x-show="$store.batch.running"><%= t('batch.cancel') %></button>
             </div>
-        </div>
-
-        <div class="ad-frame" x-show="$store.state === 'preview' || $store.state === 'processing' || $store.state === 'complete'">
-            <div class="ad-label"><%= t('ads.label') %></div>
-            <div class="ad-placeholder"><%= t('ads.placeholder') %></div>
         </div>
 
             </section>

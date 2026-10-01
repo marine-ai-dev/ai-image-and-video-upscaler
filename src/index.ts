@@ -263,7 +263,7 @@ async function index(): Promise<void> {
 
     if (!("VideoEncoder" in window)) return showUnsupported("WebCodecs");
 
-    if (!window.showSaveFilePicker) return showUnsupported("File Write System API");
+    if (!window.showSaveFilePicker) return showUnsupported("File System Access API");
 
     worker.postMessage({ cmd: 'isSupported' } satisfies WorkerRequestMessage);
 
