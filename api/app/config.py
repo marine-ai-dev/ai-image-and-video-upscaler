@@ -28,13 +28,6 @@ def _int(env: Mapping[str, str], name: str, default: int, minimum: int = 0) -> i
     return value
 
 
-def _flag(env: Mapping[str, str], name: str, default: bool = False) -> bool:
-    raw = env.get(name)
-    if raw is None or raw.strip() == "":
-        return default
-    return raw.strip().lower() in ("1", "true", "yes", "on")
-
-
 def _digest(key: str) -> bytes:
     return hashlib.sha256(key.encode("utf-8")).digest()
 
@@ -55,7 +48,6 @@ class Settings:
     tile_pixels: int = 131072
     engine_concurrency: int = 1
     sync_wait_seconds: int = 60
-    browser_compat_edges: bool = True
     weights_dir: Path = DEFAULT_WEIGHTS_DIR
     # --- jobs ---
     job_ttl_seconds: int = 3600
@@ -98,7 +90,6 @@ class Settings:
             tile_pixels=_int(env, "TILE_PIXELS", 131072, 4096),
             engine_concurrency=_int(env, "ENGINE_CONCURRENCY", 1, 1),
             sync_wait_seconds=_int(env, "SYNC_WAIT_SECONDS", 60, 0),
-            browser_compat_edges=_flag(env, "BROWSER_COMPAT_EDGES", True),
             weights_dir=Path(weights_dir) if weights_dir else DEFAULT_WEIGHTS_DIR,
             job_ttl_seconds=_int(env, "JOB_TTL_SECONDS", 3600, 1),
             job_dir=Path(job_dir_raw) if job_dir_raw else None,

@@ -3,7 +3,8 @@
 An HTTP API that runs the website's upscaling models — the WebSR `anime4k/cnn-2x-{s,m,l}`
 networks with the `rl` / `an` / `3d` weights — on the server, on CPU. It exists so the same
 models can be reached from scripts and other services, and so it can be deployed where there
-is no GPU (Railway). The website is untouched and keeps working exactly as before.
+is no GPU (Railway). It produces the same pixels as the website; the website itself is not
+served or changed by this service.
 
 > **Privacy: this is not the website.** The website upscales in your browser and uploads
 > nothing. **The API is the opposite: every image you send is uploaded to the server and
@@ -155,7 +156,6 @@ upload size is enforced while streaming (so a missing `Content-Length` does not 
 | `ENGINE_CONCURRENCY` | `1` | Upscales running at once (sync + jobs share this gate). |
 | `SYNC_WAIT_SECONDS` | `60` | How long a sync request waits for the engine before `503 busy`. |
 | `TILE_PIXELS` | `131072` | Band size for tiled inference; trades memory for nothing (output is identical). |
-| `BROWSER_COMPAT_EDGES` | `1` | See [the dispatch quirk](#the-non-multiple-of-8-quirk). `0` enhances every pixel. |
 | `CORS_ALLOW_ORIGINS` | – | Comma-separated allow-list. **CORS is off unless set.** |
 | `WEIGHTS_DIR` | `./weights` | |
 | `LOG_LEVEL` | `info` | Never logs keys, filenames or image data. |
@@ -195,26 +195,44 @@ the numbers below are measured against outputs captured from the real browser.
   neighbouring row's far edge;
 * `textureLoad` outside the input clamps per axis with `-1 → size-1`.
 
-`app/engine/forward.py` reproduces exactly that. Zero-padding or edge-replication produce visibly
-different borders up to ~14 output px deep (a test guards this).
+`app/engine/forward.py` reproduces exactly that. Zero-padding or edge-replication *inside the
+network* produce visibly different borders up to ~14 output px deep (a test guards this). That is
+separate from the input padding to a multiple of 8 described next.
 
-### The non-multiple-of-8 quirk
+### Sizes that are not a multiple of 8
 
-`ComputeLayer.run()` dispatches `floor(W/8) × floor(H/8)` workgroups of 8×8, so when a side is not a
-multiple of 8 the last `side % 8` columns/rows of every intermediate buffer are never written and stay
-zero: those pixels get **no AI residual, only the plain linear upscale** (and their neighbours see
-zeros). The captured browser output confirms it (up to 14 output px strips at the right/bottom of
-e.g. a 100×76 input). By default the API **reproduces this** so it matches the site;
-`BROWSER_COMPAT_EDGES=0` computes every pixel (better output, but differs from the site on such
-sizes by up to ~50/255 in those strips). It looks like a defect worth fixing in the web app
-(pad inputs to a multiple of 8); once it is fixed there, flip the default here.
+WebSR's compute layers dispatch `floor(W/8) × floor(H/8)` workgroups of 8×8, so on their own a side
+that is not a multiple of 8 would leave its last `side % 8` columns/rows of every intermediate buffer
+unwritten: those output pixels would get no AI residual, only the plain linear upscale (up to 14
+output px strips at the right/bottom of e.g. a 100×76 input, compounding over several passes).
+
+The website avoids this, and the API does the same, with one rule applied to **every pass**:
+
+1. pad the pass input on the right and bottom up to the next multiple of 8 by **replicating the
+   edge pixels** (`padded = ceil(size / 8) * 8`; sizes that already are multiples of 8 are not touched);
+2. run the network on the padded image (so every pixel of the cropped result has been through the model);
+3. crop the 2× result back to exactly `2W × 2H`. The cropped 8-bit result is the next pass's input,
+   which is padded again.
+
+The rule lives in `app/engine/padding.py` (`padded_size`, `pad_edge`, `crop_output`) and is applied in
+`upscale_pass`. On the website it is `paddedDimensions` / `passGeometry` (`src/lib/upscale-math.ts`)
+and `PassFrame` (`src/lib/render-chain.ts`); `tests/test_padding.py` checks the padded sizes against
+the TypeScript implementation when Node is installed. Reported and returned dimensions are always
+`source × 2^passes`, alpha is upscaled from the unpadded original, and the input/output pixel limits
+count the real (unpadded) image. Tiling works on the padded image and equals the untiled result.
+
+The earlier behaviour (reproducing the unpadded dispatch strips) and its `BROWSER_COMPAT_EDGES`
+setting were removed together with the website's fix; if that variable is still set in an
+environment it is ignored.
 
 ### Measured parity
 
-`tests/test_parity.py` compares against every capture in `tests/reference/` (the brief's five from
-the real app, plus ten more in `tests/reference/harness/` from the real `@websr/websr` build run
-through a copy of `worker.ts`'s logic — see `tests/tools/browser_reference/` to regenerate). On the
-0–255 scale, per channel, interior = all but a 2 px border:
+`tests/test_parity.py` compares against every capture in `tests/reference/` (the five from the real
+app, all multiples of 8, plus nineteen in `tests/reference/harness/` from the real `@websr/websr`
+build run through the website's own pipeline module `src/lib/render-chain.ts` — including its
+padding/crop code, which the harness imports rather than copies; see `tests/reference/harness/manifest.json`
+and `tests/tools/browser_reference/` to regenerate). On the 0–255 scale, per channel, interior = all but
+a 2 px border:
 
 | case | region | max abs (R,G,B,A) | mean abs (R,G,B,A) |
 |---|---|---|---|
@@ -223,11 +241,11 @@ through a copy of `worker.ts`'s logic — see `tests/tools/browser_reference/` t
 | large rl 1 pass | interior / border | 0,0,0,0 / 0,0,0,0 | 0 / 0 |
 | medium rl 2 passes | interior / border | 1,1,0,0 / 0,0,0,0 | 0.0000 / 0 |
 | medium rl, alpha 192→384 (PNG) | interior / border | 1,1,1,0 / 0,0,0,0 | 0.0001,0.0004,0.0003,0 / 0 |
-| 100×76, 69×45 (all 3 sizes, `an`, `3d`, 2 passes), alpha 93×61, alpha 2 passes, non-PNG path | interior / border | ≤ 2 / ≤ 1 (A = 0) | ≤ 0.008 / ≤ 0.045 |
+| 19 harness captures: 100×76, 69×45 (1–3 passes), 96×75, tiny 5×3 / 3×20 / 6×5, all 3 sizes, `an`, `3d`, alpha 93×61 (1–2 passes), alpha 192, non-PNG path | interior / border | ≤ 1 / ≤ 1 (A ≤ 1) | ≤ 0.0007 / ≤ 0.0016 |
 
 The few ±1 are exact-tie rounding differences between the GPU's bilinear filter and numpy's, never
 model differences. Targets were interior max ≤ 2, mean ≤ 0.5; all cases pass for interior **and**
-border.
+border, including the strips at the right/bottom of non-multiple-of-8 sizes.
 
 ### Tiling
 
@@ -235,8 +253,8 @@ Large images are processed in full-width bands of rows with `2 × layers` rows o
 (`NetworkSpec.band_margin`: flat indexing lets one 3×3 layer reach two rows across the row seam).
 Because of the browser's "index −1 = last pixel" rule, the top band needs the value of the *global*
 last pixel at every layer; the bottom band is processed first and hands those values over. The result
-equals the untiled one: `tests/test_tiling.py` checks all three sizes, both edge modes, even and odd
-sizes and several band heights (float residuals agree to < 1e-5; pixels are identical or differ by
+equals the untiled one: `tests/test_tiling.py` checks all three sizes, even and odd
+sizes (bands are rows of the padded image) and several band heights (float residuals agree to < 1e-5; pixels are identical or differ by
 a single rounding-tie LSB).
 
 ### Sizing (measured on an Apple M-series laptop, numpy+Accelerate, one pass, single thread)
@@ -279,7 +297,7 @@ The website service is unaffected.
 ## Design notes
 
 * **Why numpy and no ONNX/ONNX Runtime?** The edge behaviour above (flat-index wraparound, a global
-  "last pixel", dispatch strips) cannot be expressed as ONNX convolution padding, and getting parity
+  "last pixel") cannot be expressed as ONNX convolution padding, and getting parity
   was the point. The networks are tiny stacks of 3×3 convs on 4-channel buffers, so im2col + BLAS
   matmul is simple, bit-near-exact and fast enough (above), with three small dependencies instead of
   onnx + onnxruntime.

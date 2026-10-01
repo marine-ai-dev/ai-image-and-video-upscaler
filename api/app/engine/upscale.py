@@ -6,6 +6,7 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 
 from .forward import BandGeometry, Corners, run_band
+from .padding import crop_output, pad_edge
 from .weights import Network
 
 MIN_CORE_ROWS = 8
@@ -80,13 +81,31 @@ def upscale_pass(
     img: np.ndarray,
     net: Network,
     tile_pixels: int = 131072,
-    compat: bool = True,
     on_band: Optional[Callable[[int, int], None]] = None,
     bands: Optional[List[Tuple[int, int]]] = None,
 ) -> np.ndarray:
-    """Upscale an (H, W, 3) uint8 image 2x -> (2H, 2W, 3) uint8."""
+    """Upscale an (H, W, 3) uint8 image 2x -> (2H, 2W, 3) uint8.
+
+    Like the website, the model runs on the input padded to a multiple of 8 on both
+    sides (edge replication, ``padding.py``) and the result is cropped back to exactly
+    2H x 2W, so every output pixel has passed through the network. ``bands`` (tests
+    only) are row ranges of the *padded* image.
+    """
     if img.ndim != 3 or img.shape[2] != 3 or img.dtype != np.uint8:
         raise ValueError("expected an (H, W, 3) uint8 image")
+    h, w, _ = img.shape
+    padded = pad_edge(img)
+    out = _upscale_padded(padded, net, tile_pixels, on_band, bands)
+    return crop_output(out, h, w)
+
+
+def _upscale_padded(
+    img: np.ndarray,
+    net: Network,
+    tile_pixels: int,
+    on_band: Optional[Callable[[int, int], None]],
+    bands: Optional[List[Tuple[int, int]]],
+) -> np.ndarray:
     h, w, _ = img.shape
     depth = net.spec.band_margin
     bands = bands or plan_bands(h, w, depth, tile_pixels)
@@ -100,7 +119,7 @@ def upscale_pass(
     for bi in order:
         a, b = bands[bi]
         ia, ib = max(0, a - depth), min(h, b + depth)
-        geo = BandGeometry(height=h, width=w, first_row=ia, rows=ib - ia, compat=compat)
+        geo = BandGeometry(height=h, width=w, first_row=ia, rows=ib - ia)
         padded = _texture_pad(img, ia, ib)
         res, captured = run_band(net, padded, geo, corners_in=corners)
         if bi == order[0]:

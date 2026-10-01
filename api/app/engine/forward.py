@@ -13,8 +13,8 @@ README "How parity works"):
 * ``textureLoad`` outside the input texture clamps each axis, with negative
   coordinates going to the *last* texel (``-1 -> size-1``).
 * Compute passes are dispatched as ``floor(W/8) x floor(H/8)`` workgroups of
-  8x8, so when a side is not a multiple of 8 the last ``size % 8`` columns/rows
-  are never written and stay zero in every layer ("browser compat" mode).
+  8x8. Every pass therefore runs on an input padded to a multiple of 8 (see
+  ``padding.py``), so each pixel of the buffers passed in here is computed.
 
 Because flat indexing only couples a row with its two neighbours, a band of
 full-width rows plus ``spatial_depth`` rows of context on each side reproduces
@@ -42,7 +42,6 @@ class BandGeometry:
     width: int  # full image width W
     first_row: int  # global row of the band's first row (ia)
     rows: int  # number of rows in the band (ib - ia)
-    compat: bool = True  # emulate the floor(size/8) dispatch quirk
 
     @property
     def is_image_top(self) -> bool:
@@ -81,19 +80,6 @@ def _pad_flat(buf: np.ndarray, corner: Optional[np.ndarray]) -> np.ndarray:
     out[1:-1, 1:-1] = buf
     out[py, px] = ext[idx]
     return out
-
-
-def _zero_uncomputed(arr: np.ndarray, geo: BandGeometry) -> None:
-    """Zero the columns/rows the browser never dispatches (``size % 8`` strips)."""
-    if not geo.compat:
-        return
-    hc = (geo.height // 8) * 8
-    wc = (geo.width // 8) * 8
-    if wc < geo.width:
-        arr[:, wc:] = 0.0
-    r0 = hc - geo.first_row
-    if r0 < arr.shape[0]:
-        arr[max(r0, 0):] = 0.0
 
 
 def _crelu_stack(layer: PackedLayer, bufs: Dict[str, np.ndarray]) -> np.ndarray:
@@ -163,7 +149,6 @@ def run_band(
             out = _matmul(stack.reshape(h * w, -1), layer.wmat)
         out += layer.bias
         out = out.reshape(h, w, -1)
-        _zero_uncomputed(out, geo)
         for g, name in enumerate(layer.outs):
             buf = np.ascontiguousarray(out[:, :, 4 * g : 4 * g + 4])
             bufs[name] = buf

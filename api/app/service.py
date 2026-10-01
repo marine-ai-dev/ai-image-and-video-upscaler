@@ -198,7 +198,6 @@ def run_upscale(
         plan.passes,
         plan.format,
         settings.tile_pixels,
-        settings.browser_compat_edges,
         on_progress,
     )
     if progress:

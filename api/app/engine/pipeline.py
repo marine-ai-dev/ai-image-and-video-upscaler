@@ -56,7 +56,6 @@ def run_passes(
     rgb: np.ndarray,
     passes: int,
     tile_pixels: int,
-    compat: bool,
     progress: Optional[ProgressFn] = None,
 ) -> np.ndarray:
     """Chain ``passes`` model passes; each pass feeds the 8-bit result of the last."""
@@ -67,7 +66,7 @@ def run_passes(
             if progress:
                 progress(p, passes, done, total)
 
-        current = upscale_pass(current, net, tile_pixels=tile_pixels, compat=compat, on_band=cb)
+        current = upscale_pass(current, net, tile_pixels=tile_pixels, on_band=cb)
     return current
 
 
@@ -78,7 +77,6 @@ def process_image(
     passes: int,
     out_format: str,
     tile_pixels: int,
-    compat: bool,
     progress: Optional[ProgressFn] = None,
 ) -> np.ndarray:
     """Return the final pixels: (H, W, 4) uint8 for PNG with real transparency,
@@ -97,7 +95,7 @@ def process_image(
     else:
         model_input = premultiply_roundtrip(rgb, alpha)
 
-    out = run_passes(net, model_input, passes, tile_pixels, compat, progress)
+    out = run_passes(net, model_input, passes, tile_pixels, progress)
 
     if alpha is None or not preserve_alpha:
         return out

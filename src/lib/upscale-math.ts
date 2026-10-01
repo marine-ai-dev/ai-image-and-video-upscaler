@@ -61,6 +61,80 @@ export function passProgression(source: Dimensions, passes: number): Dimensions[
     return steps;
 }
 
+//=================== Workgroup alignment (edge padding) ===========================
+
+/**
+ * WebSR's compute layers dispatch `floor(size / 8)` workgroups of 8x8 threads,
+ * so a side that is not a multiple of 8 would leave its last `size % 8`
+ * columns/rows without any model output (a plain linear upscale only). Every
+ * model pass therefore runs on the input padded up to the next multiple of 8
+ * by replicating its edge pixels, and the result is cropped back to exactly
+ * `NATIVE_SCALE x` the logical input size. This is the single definition of
+ * that rule: the worker, the browser reference harness and the tests all go
+ * through these helpers, and `api/app/engine/padding.py` mirrors it.
+ */
+export const WORKGROUP_SIZE = 8;
+
+/** Smallest multiple of `multiple` that is >= `n`. */
+export function alignUp(n: number, multiple: number = WORKGROUP_SIZE): number {
+    return Math.ceil(n / multiple) * multiple;
+}
+
+/** The size the network is actually built and run at for a logical input size. */
+export function paddedDimensions(d: Dimensions): Dimensions {
+    return { width: alignUp(d.width), height: alignUp(d.height) };
+}
+
+/** True when the input must be padded (both sides already aligned = zero-cost path). */
+export function needsPadding(d: Dimensions): boolean {
+    const p = paddedDimensions(d);
+    return p.width !== d.width || p.height !== d.height;
+}
+
+export interface CropRect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export interface PassGeometry {
+    /** What the user's pass input is (logical, unpadded). */
+    input: Dimensions;
+    /** What the network runs on (input rounded up to a multiple of 8). */
+    padded: Dimensions;
+    /** The padded output produced by the network (padded x NATIVE_SCALE). */
+    paddedOutput: Dimensions;
+    /** Logical result of the pass: exactly input x NATIVE_SCALE. */
+    output: Dimensions;
+    /** Region of `paddedOutput` that is the logical result (always at the origin). */
+    crop: CropRect;
+    padding: boolean;
+}
+
+/** Geometry of one model pass over a logical input size. */
+export function passGeometry(input: Dimensions): PassGeometry {
+    const padded = paddedDimensions(input);
+    const output = { width: input.width * NATIVE_SCALE, height: input.height * NATIVE_SCALE };
+    return {
+        input: { width: input.width, height: input.height },
+        padded,
+        paddedOutput: { width: padded.width * NATIVE_SCALE, height: padded.height * NATIVE_SCALE },
+        output,
+        crop: { x: 0, y: 0, width: output.width, height: output.height },
+        padding: padded.width !== input.width || padded.height !== input.height
+    };
+}
+
+/** Geometry of every pass of a chain; each pass pads its own (cropped) input. */
+export function passGeometries(source: Dimensions, passes: number): PassGeometry[] {
+    const list: PassGeometry[] = [];
+    for (let pass = 1; pass <= Math.max(0, passes); pass++) {
+        list.push(passGeometry(dimensionsAfterPasses(source, pass - 1)));
+    }
+    return list;
+}
+
 export interface TargetPlan {
     /** Number of native passes chosen. */
     passes: number;
@@ -178,6 +252,7 @@ const BYTES_PER_BUFFER_PIXEL = 16;
  */
 const ENCODE_BYTES_PER_OUTPUT_PIXEL_PNG = 20;
 const ENCODE_BYTES_PER_OUTPUT_PIXEL = 8;
+const CROP_CANVAS_BYTES_PER_PIXEL = 4;
 
 /**
  * Fraction of the memory budget at which we start telling the user the job is
@@ -235,14 +310,20 @@ export function estimatePeakBytes(
     pngOutput: boolean = true
 ): number {
     let instances = 0;
-    for (let pass = 1; pass <= passes; pass++) {
-        const passInput = dimensionsAfterPasses(source, pass - 1);
-        instances += passInput.width * passInput.height * bytesPerInputPixel;
+    const geometries = passGeometries(source, passes);
+    for (const geometry of geometries) {
+        // Instances are built at the padded size, so that is what they cost.
+        instances += geometry.padded.width * geometry.padded.height * bytesPerInputPixel;
     }
 
     const output = dimensionsAfterPasses(source, passes);
-    const encode = output.width * output.height *
+    let encode = output.width * output.height *
         (pngOutput ? ENCODE_BYTES_PER_OUTPUT_PIXEL_PNG : ENCODE_BYTES_PER_OUTPUT_PIXEL);
+
+    // A padded last pass is cropped into a separate output-sized canvas.
+    if (geometries.length > 0 && geometries[geometries.length - 1].padding) {
+        encode += output.width * output.height * CROP_CANVAS_BYTES_PER_PIXEL;
+    }
 
     return instances + encode;
 }
@@ -278,8 +359,10 @@ export function evaluateSafety(input: SafetyInput): SafetyReport {
     // budget is known, the projected working memory.
     let maxSafePasses = 0;
     for (let p = 1; p <= Math.max(input.passes, MAX_PASSES); p++) {
-        const passInput = dimensionsAfterPasses(input.source, p - 1);
-        const passOutput = dimensionsAfterPasses(input.source, p);
+        // Limits apply to what is really allocated: the padded size.
+        const geometry = passGeometry(dimensionsAfterPasses(input.source, p - 1));
+        const passInput = geometry.padded;
+        const passOutput = geometry.paddedOutput;
         const bufferBytes = passInput.width * passInput.height * BYTES_PER_BUFFER_PIXEL;
         const fitsTexture = Math.max(passOutput.width, passOutput.height) <= caps.maxTextureDimension;
         const fitsBuffer = bufferBytes <= caps.maxStorageBufferBindingSize;
@@ -297,8 +380,9 @@ export function evaluateSafety(input: SafetyInput): SafetyReport {
     if (input.passes > maxSafePasses) {
         level = 'block';
         const limitPass = maxSafePasses + 1;
-        const blocked = dimensionsAfterPasses(input.source, limitPass);
-        const blockedInput = dimensionsAfterPasses(input.source, limitPass - 1);
+        const blockedGeometry = passGeometry(dimensionsAfterPasses(input.source, limitPass - 1));
+        const blocked = blockedGeometry.paddedOutput;
+        const blockedInput = blockedGeometry.padded;
         const blockedBufferBytes = blockedInput.width * blockedInput.height * BYTES_PER_BUFFER_PIXEL;
 
         if (Math.max(blocked.width, blocked.height) > caps.maxTextureDimension) {

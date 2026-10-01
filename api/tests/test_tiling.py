@@ -5,6 +5,7 @@ from PIL import Image
 
 from app.config import DEFAULT_WEIGHTS_DIR
 from app.engine.forward import BandGeometry, run_band
+from app.engine.padding import padded_size
 from app.engine.upscale import _texture_pad, plan_bands, upscale_pass
 from app.engine.weights import load_network
 
@@ -22,16 +23,15 @@ def odd_photo(photo):
 
 
 @pytest.mark.parametrize("model", ["small", "medium", "large"])
-@pytest.mark.parametrize("compat", [True, False])
 @pytest.mark.parametrize("which", ["photo", "odd_photo"])
-def test_tiled_equals_untiled(model, compat, which, request):
+def test_tiled_equals_untiled(model, which, request):
     img = request.getfixturevalue(which)
-    h = img.shape[0]
+    h = padded_size(img.shape[0])  # bands are rows of the padded image
     net = load_network(DEFAULT_WEIGHTS_DIR, model, "rl")
-    whole = upscale_pass(img, net, tile_pixels=10**9, compat=compat)
+    whole = upscale_pass(img, net, tile_pixels=10**9)
     for core in (8, 13, 40):
         bands = [(a, min(a + core, h)) for a in range(0, h, core)]
-        tiled = upscale_pass(img, net, compat=compat, bands=bands)
+        tiled = upscale_pass(img, net, bands=bands)
         assert tiled.shape == whole.shape
         # Bands see the same inputs in the same order of operations, only the matmul
         # blocking differs; allow a lone LSB flip on an exact rounding tie.
@@ -61,11 +61,11 @@ def test_top_band_needs_the_global_corner(photo):
     img = photo
     h, w, _ = img.shape
     net = load_network(DEFAULT_WEIGHTS_DIR, "medium", "rl")
-    geo_whole = BandGeometry(h, w, 0, h, compat=False)
+    geo_whole = BandGeometry(h, w, 0, h)
     whole, corners = run_band(net, _texture_pad(img, 0, h), geo_whole)
 
     ib = 60
-    geo_top = BandGeometry(h, w, 0, ib, compat=False)
+    geo_top = BandGeometry(h, w, 0, ib)
     padded = _texture_pad(img, 0, ib)
     with_corner, _ = run_band(net, padded, geo_top, corners_in=corners)
     without, _ = run_band(net, padded, geo_top, corners_in=None)

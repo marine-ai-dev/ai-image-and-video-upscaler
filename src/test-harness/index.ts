@@ -462,6 +462,220 @@ async function testMultiPassVideo(): Promise<void> {
     );
 }
 
+//=================== Sizes that are not a multiple of 8 ===========================
+
+/** A deterministic test picture with real texture (so the model has something to do). */
+async function makePicture(width: number, height: number): Promise<ImageBitmap> {
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d')!;
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, '#2a6fb0');
+    gradient.addColorStop(1, '#e8b04a');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    for (let i = 0; i < 40; i++) {
+        ctx.fillStyle = `hsl(${(i * 47) % 360} 70% ${30 + (i * 13) % 50}%)`;
+        ctx.fillRect((i * 37) % width, (i * 53) % height, 3 + (i % 9), 2 + (i % 7));
+    }
+    return canvas.transferToImageBitmap();
+}
+
+/** Independent edge replication (does not use the app's PassFrame). */
+async function replicatePad(source: ImageBitmap, paddedWidth: number, paddedHeight: number): Promise<ImageBitmap> {
+    const canvas = new OffscreenCanvas(paddedWidth, paddedHeight);
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(source, 0, 0);
+    for (let x = source.width; x < paddedWidth; x++) ctx.drawImage(canvas, source.width - 1, 0, 1, source.height, x, 0, 1, source.height);
+    for (let y = source.height; y < paddedHeight; y++) ctx.drawImage(canvas, 0, source.height - 1, paddedWidth, 1, 0, y, paddedWidth, 1);
+    return canvas.transferToImageBitmap();
+}
+
+async function pixelsOf(bytes: Uint8Array | ImageBitmap): Promise<ImageData> {
+    const bitmap = bytes instanceof ImageBitmap
+        ? bytes
+        : await createImageBitmap(new Blob([bytes as any]), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    ctx.drawImage(bitmap, 0, 0);
+    return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+}
+
+function maxAbsDiff(a: ImageData, b: ImageData, crop?: { width: number; height: number }): number {
+    const width = crop?.width ?? a.width;
+    const height = crop?.height ?? a.height;
+    let max = 0;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            for (let c = 0; c < 3; c++) {
+                const d = Math.abs(a.data[(y * a.width + x) * 4 + c] - b.data[(y * b.width + x) * 4 + c]);
+                if (d > max) max = d;
+            }
+        }
+    }
+    return max;
+}
+
+/**
+ * Test 19: every output pixel goes through the model when a side is not a
+ * multiple of 8. The result for the real size must equal (a) the exact output
+ * dimensions and (b) the crop of an ordinary aligned run over an independently
+ * edge-replicated copy of the picture - for 1 and 2 passes and a tiny image.
+ */
+async function testNonMultipleOf8Images(): Promise<void> {
+    const compared = new Set<string>();
+    for (const [width, height, passes] of [[100, 76, 1], [100, 76, 2], [69, 45, 3], [5, 3, 2], [96, 75, 1]] as const) {
+        const picture = await makePicture(width, height);
+        if (!compared.has(`${width}x${height}`)) {
+            compared.add(`${width}x${height}`);
+            const padded = { width: Math.ceil(width / 8) * 8, height: Math.ceil(height / 8) * 8 };
+            const padSource = await replicatePad(picture, padded.width, padded.height);
+
+            const odd = await bridge.runImageJob(
+                bridge.nextJobId('odd'), picture,
+                { ...NETWORK, passes: 1, mimeType: 'image/png', preserveAlpha: false }
+            );
+            // Reference for pass 1: an aligned run over the replicated picture, cropped.
+            const aligned = await bridge.runImageJob(
+                bridge.nextJobId('aligned'), padSource,
+                { ...NETWORK, passes: 1, mimeType: 'image/png', preserveAlpha: false }
+            );
+            const oddPixels = await pixelsOf(new Uint8Array(odd.data!));
+            const alignedPixels = await pixelsOf(new Uint8Array(aligned.data!));
+            const firstPassMatches = maxAbsDiff(oddPixels, alignedPixels, { width: width * 2, height: height * 2 });
+
+            check(
+                `Test 19a — ${width}x${height} 1 pass equals the aligned run on the edge-replicated input`,
+                odd.width === width * 2 && odd.height === height * 2 && firstPassMatches === 0,
+                `${odd.width}x${odd.height}, max diff ${firstPassMatches} over the whole cropped image (incl. the last ${width % 8} columns / ${height % 8} rows)`
+            );
+        }
+
+        if (passes > 1) {
+            const multi = await bridge.runImageJob(
+                bridge.nextJobId('multi'), await makePicture(width, height),
+                { ...NETWORK, passes, mimeType: 'image/png', preserveAlpha: false }
+            );
+            const expected = { width: width * 2 ** passes, height: height * 2 ** passes };
+            check(
+                `Test 19b — ${width}x${height} ${passes} passes reports and produces exact dimensions`,
+                multi.width === expected.width && multi.height === expected.height &&
+                (await dimensionsOf(new Uint8Array(multi.data!))).width === expected.width &&
+                (await dimensionsOf(new Uint8Array(multi.data!))).height === expected.height,
+                `${multi.width}x${multi.height} (expected ${expected.width}x${expected.height})`
+            );
+        }
+    }
+}
+
+/** Test 20: a video whose size is not a multiple of 8 (100x76) keeps its exact scaled size. */
+async function testNonMultipleOf8Video(): Promise<void> {
+    for (const passes of [1, 2]) {
+        const sourceDir = await freshDirectory(`odd-video-src-${passes}`);
+        const dir = await freshDirectory(`odd-video-out-${passes}`);
+        const controller = makeController(dir);
+        controller.global = { mode: 'passes', passes, targetLongEdge: 4096 };
+
+        const handle = await writeInto(sourceDir, await fetchFile('clip_odd_100x76.mp4', 'video/mp4'));
+        await controller.addFiles([handle]);
+
+        const started = performance.now();
+        const summary = await controller.run();
+        const elapsed = (performance.now() - started) / 1000;
+        const item = controller.items[0];
+        const info = item.outputName
+            ? await probeVideo((await readFileBytes(dir, item.outputName)).buffer as ArrayBuffer)
+            : null;
+
+        check(
+            `Test 20 — 100x76 video, ${passes} pass(es), exact output size`,
+            summary.successful === 1 && info?.width === 100 * 2 ** passes && info?.height === 76 * 2 ** passes,
+            `-> ${info?.width}x${info?.height} (expected ${100 * 2 ** passes}x${76 * 2 ** passes}), ` +
+            `${info ? info.duration.toFixed(2) : '?'}s, took ${elapsed.toFixed(1)}s` + (item.error ? ` — error: ${item.error}` : '')
+        );
+    }
+}
+
+/**
+ * Test 21: the on-page preview instance (init / processImage / process) also
+ * handles sizes that are not a multiple of 8 - it renders into an internal
+ * padded canvas and presents the cropped result - and agrees with a batch job.
+ */
+async function testNonMultipleOf8PreviewPaths(): Promise<void> {
+    const width = 100;
+    const height = 76;
+    const picture = await makePicture(width, height);
+
+    const upscaledCanvas = document.createElement('canvas');
+    const originalCanvas = document.createElement('canvas');
+    upscaledCanvas.width = width * 2;
+    upscaledCanvas.height = height * 2;
+    originalCanvas.width = width * 2;
+    originalCanvas.height = height * 2;
+    const upscaled = upscaledCanvas.transferControlToOffscreen();
+    const original = originalCanvas.transferControlToOffscreen();
+
+    worker.postMessage({
+        cmd: 'init',
+        data: {
+            bitmap: await createImageBitmap(picture),
+            upscaled,
+            original,
+            resolution: { width, height },
+            preserveAlpha: false
+        }
+    }, [upscaled, original]);
+
+    const singleDone = waitForWorker('finishedImage');
+    worker.postMessage({ cmd: 'processImage', data: { bitmap: await createImageBitmap(picture), mimeType: 'image/png' } });
+    const single = await singleDone;
+    const reference = await bridge.runImageJob(
+        bridge.nextJobId('preview-ref'), await createImageBitmap(picture),
+        { ...NETWORK, passes: 1, mimeType: 'image/png', preserveAlpha: true }
+    );
+    const diff = maxAbsDiff(await pixelsOf(new Uint8Array(single.data)), await pixelsOf(new Uint8Array(reference.data!)));
+
+    check(
+        'Test 21a — preview single-pass path, 100x76: exact size, same pixels as the batch job',
+        single.width === width * 2 && single.height === height * 2 && diff === 0,
+        `${single.width}x${single.height}, max diff vs batch job ${diff}`
+    );
+
+    const multiDone = waitForWorker('finishedImage');
+    worker.postMessage({
+        cmd: 'processImage',
+        data: {
+            bitmap: await createImageBitmap(picture),
+            mimeType: 'image/png',
+            options: { name: NETWORK.name, weightsKey: NETWORK.weightsKey, passes: 2 }
+        }
+    });
+    const multi = await multiDone;
+    const multiReference = await bridge.runImageJob(
+        bridge.nextJobId('preview-ref2'), await createImageBitmap(picture),
+        { ...NETWORK, passes: 2, mimeType: 'image/png', preserveAlpha: true }
+    );
+    const multiDiff = maxAbsDiff(await pixelsOf(new Uint8Array(multi.data)), await pixelsOf(new Uint8Array(multiReference.data!)));
+    check(
+        'Test 21b — preview multi-pass path, 100x76, 2 passes: exact size, same pixels as the batch job',
+        multi.width === width * 4 && multi.height === height * 4 && multiDiff === 0,
+        `${multi.width}x${multi.height}, max diff vs batch job ${multiDiff}`
+    );
+
+    // Video through the preview instance (cmd: 'process').
+    const sourceDir = await freshDirectory('preview-odd-video');
+    const handle = await writeInto(sourceDir, await fetchFile('clip_odd_100x76.mp4', 'video/mp4'));
+    const done = waitForWorker('finished');
+    worker.postMessage({ cmd: 'process', inputHandle: handle });
+    const result = await done;
+    const info = result.data ? await probeVideo(result.data) : null;
+    check(
+        'Test 21c — preview video path, 100x76 (1 pass): exact output size',
+        info?.width === width * 2 && info?.height === height * 2,
+        `-> ${info?.width}x${info?.height}, ${info ? info.duration.toFixed(2) : '?'}s`
+    );
+}
+
 /** Wait for a specific non-job message from the worker. */
 function waitForWorker(cmd: string, timeoutMs = 120000): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -999,7 +1213,10 @@ async function run(): Promise<void> {
         ['cancellation', testCancellation],
         ['gpu lifecycle', testGpuLifecycle],
         ['preview path regression', testPreviewPathRegression],
-        ['video preview regression', testVideoPreviewRegression]
+        ['video preview regression', testVideoPreviewRegression],
+        ['non-multiple-of-8 images', testNonMultipleOf8Images],
+        ['non-multiple-of-8 video', testNonMultipleOf8Video],
+        ['non-multiple-of-8 preview paths', testNonMultipleOf8PreviewPaths]
     ];
 
     for (const [name, fn] of tests) {
@@ -1017,5 +1234,26 @@ async function run(): Promise<void> {
     done.textContent = `DONE — ${passed} passed, ${failed} failed`;
     output.appendChild(done);
 }
+
+/**
+ * Manual benchmark helper (not part of the test run): time one batch video job
+ * through the real worker, e.g. in the console:
+ *   await benchVideo('bench_1280x720.mp4', 1)
+ * Files are fetched from test-media/; returns wall-clock seconds and frames/s.
+ */
+(window as any).benchVideo = async (name: string, passes: number, frames = 0) => {
+    bridge = bridge || new WorkerBridge(worker);
+    const dir = await freshDirectory(`bench-${name}-${passes}`);
+    const controller = makeController(dir);
+    controller.global = { mode: 'passes', passes, targetLongEdge: 4096 };
+    const source = await freshDirectory(`bench-src-${name}`);
+    const handle = await writeInto(source, await fetchFile(name, 'video/mp4'));
+    await controller.addFiles([handle]);
+    const started = performance.now();
+    const summary = await controller.run();
+    const seconds = (performance.now() - started) / 1000;
+    const item = controller.items[0];
+    return { name, passes, ok: summary.successful === 1, seconds, fps: frames ? frames / seconds : undefined, size: `${item.result?.width}x${item.result?.height}` };
+};
 
 document.addEventListener('DOMContentLoaded', run);

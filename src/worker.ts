@@ -18,6 +18,14 @@ import {
 
 import WebSR from '@websr/websr';
 import { AppError, toMsg } from './lib/app-error';
+import {
+  PassFrame,
+  composeAlpha,
+  createMattedImageBitmap,
+  encodeCanvas,
+  renderChain as runRenderChain
+} from './lib/render-chain';
+import type { ChainStep as SharedChainStep, PassSource } from './lib/render-chain';
 
 import type {
   WorkerRequestMessage,
@@ -33,6 +41,13 @@ import type {
 // Worker state
 let gpu: any | false;
 let websr: WebSR;
+/**
+ * The on-page preview canvas. It keeps one WebGPU context for the whole page
+ * (a canvas cannot change context type). When the preview's input is a
+ * multiple of 8 WebSR renders straight into it; otherwise WebSR renders into
+ * an internal padded canvas and the cropped result is copied in (see
+ * presentPreview).
+ */
 let upscaled_canvas: OffscreenCanvas;
 let original_canvas: OffscreenCanvas;
 let resolution: Resolution;
@@ -61,7 +76,7 @@ interface InstanceEntry {
   canvas: OffscreenCanvas;
   lastUsed: number;
   pinned: boolean;
-  /** Input pixels this instance is built for, used for the bytes/pixel ratio. */
+  /** Padded input pixels this instance is built for, used for the bytes/pixel ratio. */
   pixels: number;
   /** Measured GPU bytes held by this instance (buffers + owned textures). */
   bytes: number;
@@ -87,6 +102,12 @@ const networkProfiles = new Map<string, number>();
  * new file is loaded into the same page.
  */
 let previewEntry: InstanceEntry | null = null;
+
+/** Padding/cropping geometry of the preview instance's (logical) input. */
+let previewFrame: PassFrame | null = null;
+
+/** Who last configured the preview canvas' WebGPU context: WebSR or presentPreview. */
+let previewContextOwner: 'websr' | 'copy' | null = null;
 
 /** Cooperative cancellation - checked between passes, files and video frames. */
 let cancelRequested = false;
@@ -196,25 +217,37 @@ async function init(config: InitData): Promise<void> {
     previewEntry = null;
   }
 
+  // The visible canvases always have the logical size: exactly 2x the input.
   upscaled_canvas.width = config.resolution.width * NATIVE_SCALE;
   upscaled_canvas.height = config.resolution.height * NATIVE_SCALE;
   original_canvas.width = config.resolution.width * NATIVE_SCALE;
   original_canvas.height = config.resolution.height * NATIVE_SCALE;
 
+  // WebSR only runs the model over whole 8x8 workgroups, so an input whose
+  // sides are not multiples of 8 is padded; the instance is built at the
+  // padded size and renders into its own canvas that is then cropped.
+  previewFrame?.dispose();
+  previewFrame = new PassFrame(config.resolution);
+  const geometry = previewFrame.geometry;
+  const networkCanvas = geometry.padding
+    ? new OffscreenCanvas(geometry.paddedOutput.width, geometry.paddedOutput.height)
+    : upscaled_canvas;
+
   websr = new WebSR({
     network_name: "anime4k/cnn-2x-m",
     weights,
-    resolution: config.resolution,
+    resolution: geometry.padded,
     gpu: gpu,
-    canvas: upscaled_canvas as any // OffscreenCanvas is valid but types may be strict
+    canvas: networkCanvas as any // OffscreenCanvas is valid but types may be strict
   });
+  if (!geometry.padding) previewContextOwner = 'websr';
 
   previewEntry = {
     websr,
-    canvas: upscaled_canvas,
+    canvas: networkCanvas,
     lastUsed: performance.now(),
     pinned: true,
-    pixels: config.resolution.width * config.resolution.height,
+    pixels: geometry.padded.width * geometry.padded.height,
     bytes: 0,
     measured: false
   };
@@ -244,8 +277,12 @@ async function switchNetwork(name: string, networkWeights: any, bitmap: ImageBit
 
 //===================  Instance cache ===========================
 
-function instanceKey(options: PassOptions, width: number, height: number): string {
-  return `${options.name}|${options.weightsKey}|${width}x${height}`;
+/**
+ * Instances are keyed by the PADDED size they are built for, so 100x76 and
+ * 104x80 inputs share one (their PassFrames differ, the network does not).
+ */
+function instanceKey(options: PassOptions, padded: Resolution): string {
+  return `${options.name}|${options.weightsKey}|${padded.width}x${padded.height}`;
 }
 
 /**
@@ -369,8 +406,10 @@ function evictIfNeeded(): void {
   }
 }
 
-function getInstance(options: PassOptions, width: number, height: number): InstanceEntry {
-  const key = instanceKey(options, width, height);
+/** `padded` is the multiple-of-8 size from passGeometry(), not the logical input. */
+function getInstance(options: PassOptions, padded: Resolution): InstanceEntry {
+  const { width, height } = padded;
+  const key = instanceKey(options, padded);
   const existing = instanceCache.get(key);
   if (existing) {
     existing.lastUsed = performance.now();
@@ -427,14 +466,15 @@ function releaseAllInstances(): void {
 
 //===================  Pass chain ===========================
 
-interface ChainStep {
-  canvas: OffscreenCanvas;
-  render: (source: ImageBitmap | VideoFrame) => Promise<void>;
+interface ChainStep extends SharedChainStep {
   entry?: InstanceEntry;
 }
 
 /**
  * Build the ordered list of render targets for a multi-pass run.
+ *
+ * `source` is the LOGICAL input size. Each pass runs at its padded size (see
+ * PassFrame) and the cropped output is the next pass's logical input.
  *
  * `usePreviewInstance` keeps the first pass on the on-screen preview canvas so
  * the existing single-file preview keeps updating exactly as before; batch jobs
@@ -450,15 +490,24 @@ function buildChain(
   let height = source.height;
 
   for (let pass = 1; pass <= options.passes; pass++) {
-    if (pass === 1 && usePreviewInstance) {
+    const logical = { width, height };
+
+    if (pass === 1 && usePreviewInstance && previewEntry && previewFrame &&
+        previewFrame.geometry.input.width === width && previewFrame.geometry.input.height === height) {
       steps.push({
-        canvas: upscaled_canvas,
-        render: (src) => renderToUpscaledCanvas(src, false)
+        frame: previewFrame,
+        canvas: previewEntry.canvas,
+        render: async (src) => {
+          await websr.render(src as any);
+          await presentPreview();
+        }
       });
     } else {
-      const entry = getInstance(options, width, height);
+      const frame = new PassFrame(logical);
+      const entry = getInstance(options, frame.geometry.padded);
       entry.pinned = true;
       steps.push({
+        frame,
         canvas: entry.canvas,
         render: async (src) => {
           await entry.websr.render(src as any);
@@ -477,53 +526,26 @@ function buildChain(
 function unpinChain(steps: ChainStep[]): void {
   for (const step of steps) {
     if (step.entry) step.entry.pinned = false;
+    // The preview frame outlives a job (it is the preview's own).
+    if (step.frame !== previewFrame) step.frame.dispose();
   }
 }
 
 /**
- * Run a source through every pass, feeding each pass's output into the next.
- *
- * Only one intermediate bitmap is alive at a time - each is closed as soon as
- * the following pass has consumed it.
+ * Run a source through every pass (see render-chain.ts), aborting between
+ * passes when cancellation was requested.
  */
-async function renderChain(
+function renderChain(
   steps: ChainStep[],
   source: ImageBitmap | VideoFrame,
   preserveAlpha: boolean,
   onPass?: (pass: number, width: number, height: number) => void
 ): Promise<OffscreenCanvas> {
-  let current: ImageBitmap | VideoFrame = source;
-  let owned: ImageBitmap | null = null;
-
-  for (let i = 0; i < steps.length; i++) {
-    throwIfCancelled();
-
-    // Only the first pass sees the original file's alpha; later passes work on
-    // already-composited output.
-    const input = i === 0 && preserveAlpha && current instanceof ImageBitmap
-      ? createMattedImageBitmap(current)
-      : current;
-
-    await steps[i].render(input);
-
-    if (input !== current && input instanceof ImageBitmap) input.close();
-
-    if (owned) {
-      owned.close();
-      owned = null;
-    }
-
-    onPass?.(i + 1, steps[i].canvas.width, steps[i].canvas.height);
-
-    if (i < steps.length - 1) {
-      owned = await createImageBitmap(steps[i].canvas);
-      current = owned;
-    }
-  }
-
-  if (owned) owned.close();
-
-  return steps[steps.length - 1].canvas;
+  return runRenderChain(steps, source as PassSource, {
+    preserveAlpha,
+    onPass,
+    checkCancelled: throwIfCancelled
+  });
 }
 
 //===================  Image processing ===========================
@@ -547,17 +569,20 @@ async function processImage(data: ImageProcessData): Promise<void> {
       // Original single-pass path, byte for byte the same as before.
       await renderToUpscaledCanvas(data.bitmap, preserveAlpha);
 
+      // The logical (cropped) result: the preview canvas itself when the input
+      // is a multiple of 8, otherwise the cropped copy.
+      const result = previewResultCanvas();
       const blob = preserveAlpha
-        ? await createPngWithOriginalAlpha(data.bitmap)
-        : await upscaled_canvas.convertToBlob({ type: outputType });
+        ? await createPngWithOriginalAlpha(data.bitmap, result)
+        : await result.convertToBlob({ type: outputType });
 
       const buffer = await blob.arrayBuffer();
       postMessage({
         cmd: 'finishedImage',
         data: buffer,
         mimeType: blob.type,
-        width: upscaled_canvas.width,
-        height: upscaled_canvas.height
+        width: result.width,
+        height: result.height
       } satisfies WorkerResponseMessage, [buffer]);
     } finally {
       ownedBitmap.close();
@@ -628,95 +653,81 @@ async function runImageJob(data: ImageJobData): Promise<void> {
 }
 
 /**
- * Encode a rendered canvas, restoring the source alpha channel for PNG output.
+ * Render one source through the preview instance (matte for PNG alpha, edge
+ * padding when needed) and show the result on the preview canvas.
  */
-async function encodeCanvas(
-  canvas: OffscreenCanvas,
-  mimeType: string,
-  alphaSource: ImageBitmap | null
-): Promise<Blob> {
-  if (!alphaSource || mimeType !== 'image/png') {
-    return canvas.convertToBlob({ type: mimeType });
-  }
-
-  const renderedBlob = await canvas.convertToBlob({ type: 'image/png' });
-  const renderedBitmap = await createImageBitmap(renderedBlob);
-  try {
-    return await composeAlpha(renderedBitmap, alphaSource);
-  } finally {
-    renderedBitmap.close();
-  }
-}
-
 async function renderToUpscaledCanvas(source: ImageBitmap | VideoFrame, preserveAlpha = false): Promise<void> {
-  const renderSource = preserveAlpha && source instanceof ImageBitmap
+  const frame = previewFrame!;
+  const matted = preserveAlpha && source instanceof ImageBitmap
     ? createMattedImageBitmap(source)
     : source;
+  const input = frame.prepareInput(matted);
 
-  await websr.render(renderSource as any);
+  try {
+    await websr.render(input as any);
+  } finally {
+    if (input !== matted && input instanceof ImageBitmap) input.close();
+    if (matted !== source && matted instanceof ImageBitmap) matted.close();
+  }
 
-  if (renderSource instanceof ImageBitmap && renderSource !== source) {
-    renderSource.close();
+  await presentPreview();
+}
+
+/**
+ * Padded previews render into an internal canvas, so copy the cropped result
+ * onto the on-page canvas. Aligned previews are drawn there by WebSR directly
+ * and this does nothing.
+ */
+async function presentPreview(): Promise<void> {
+  const frame = previewFrame;
+  const entry = previewEntry;
+  if (!frame || !entry || !frame.padding) return;
+
+  const { crop } = frame.geometry;
+  const bitmap = await frame.outputBitmap(entry.canvas);
+  try {
+    const context = upscaled_canvas.getContext('webgpu') as unknown as GPUCanvasContext | null;
+    if (!context) throw new Error('Preview canvas has no WebGPU context');
+
+    // WebSR configures the context without COPY_DST; take it over for the copy.
+    if (previewContextOwner !== 'copy') {
+      context.configure({
+        device: gpu,
+        format: (navigator as any).gpu.getPreferredCanvasFormat(),
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+        alphaMode: 'opaque'
+      });
+      previewContextOwner = 'copy';
+    }
+
+    gpu.queue.copyExternalImageToTexture(
+      { source: bitmap },
+      { texture: context.getCurrentTexture() },
+      [crop.width, crop.height]
+    );
+    await gpu.queue.onSubmittedWorkDone();
+  } finally {
+    bitmap.close();
   }
 }
 
-function createMattedImageBitmap(bitmap: ImageBitmap): ImageBitmap {
-  const matteCanvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  const matteCtx = matteCanvas.getContext('2d');
-
-  if (!matteCtx) return bitmap;
-
-  matteCtx.fillStyle = '#fffaf2';
-  matteCtx.fillRect(0, 0, matteCanvas.width, matteCanvas.height);
-  matteCtx.drawImage(bitmap, 0, 0);
-
-  return matteCanvas.transferToImageBitmap();
+/** The canvas that holds the preview instance's logical (cropped) result. */
+function previewResultCanvas(): OffscreenCanvas {
+  return previewFrame!.outputCanvas(previewEntry!.canvas);
 }
 
 /**
  * WebSR renders PNG RGB against a light matte; restore the original transparent mask
  * only for the downloaded PNG so the final file keeps a real alpha channel.
  */
-async function createPngWithOriginalAlpha(bitmap: ImageBitmap): Promise<Blob> {
-  const renderedBlob = await upscaled_canvas.convertToBlob({ type: 'image/png' });
+async function createPngWithOriginalAlpha(bitmap: ImageBitmap, result: OffscreenCanvas): Promise<Blob> {
+  const renderedBlob = await result.convertToBlob({ type: 'image/png' });
   const renderedBitmap = await createImageBitmap(renderedBlob);
   try {
     return await composeAlpha(renderedBitmap, bitmap);
   } finally {
     renderedBitmap.close();
   }
-}
-
-/**
- * Copy the (upscaled) alpha channel of `original` onto the rendered RGB result.
- */
-async function composeAlpha(rendered: ImageBitmap, original: ImageBitmap): Promise<Blob> {
-  const outputCanvas = new OffscreenCanvas(rendered.width, rendered.height);
-  const outputCtx = outputCanvas.getContext('2d', { willReadFrequently: true });
-  if (!outputCtx) return new Blob([]);
-
-  outputCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
-  outputCtx.drawImage(rendered, 0, 0);
-
-  const alphaCanvas = new OffscreenCanvas(outputCanvas.width, outputCanvas.height);
-  const alphaCtx = alphaCanvas.getContext('2d', { willReadFrequently: true });
-  if (!alphaCtx) return outputCanvas.convertToBlob({ type: 'image/png' });
-
-  alphaCtx.imageSmoothingEnabled = true;
-  alphaCtx.imageSmoothingQuality = 'high';
-  alphaCtx.clearRect(0, 0, alphaCanvas.width, alphaCanvas.height);
-  alphaCtx.drawImage(original, 0, 0, alphaCanvas.width, alphaCanvas.height);
-
-  const outputImage = outputCtx.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
-  const alphaImage = alphaCtx.getImageData(0, 0, alphaCanvas.width, alphaCanvas.height);
-
-  for (let i = 3; i < outputImage.data.length; i += 4) {
-    outputImage.data[i] = alphaImage.data[i];
-  }
-
-  outputCtx.putImageData(outputImage, 0, 0);
-
-  return outputCanvas.convertToBlob({ type: 'image/png' });
 }
 
 //===================  Video processing ===========================
@@ -779,7 +790,10 @@ async function initRecording(
     passes
   }, usePreviewInstance);
 
-  const finalCanvas = steps[steps.length - 1].canvas;
+  // Padded runs encode from a cropped canvas that renderChain refreshes per
+  // frame; aligned runs encode straight from the last pass's canvas.
+  const lastStep = steps[steps.length - 1];
+  const finalCanvas = lastStep.frame.target(lastStep.canvas);
 
   log('video job', jobId || 'preview', `${inputWidth}x${inputHeight} -> ${finalWidth}x${finalHeight}`, `${passes} pass(es)`);
 

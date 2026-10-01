@@ -1,5 +1,8 @@
 """Parity with outputs captured from the real browser app (tests/reference/).
 
+The harness captures (tests/reference/harness/) are produced by the website's own padding
+code (src/lib/render-chain.ts) around the real @websr/websr; see manifest.json.
+
 Interior = everything except a 2 px border; border = the outermost 2 px ring.
 Targets from the brief: interior max <= 2 and mean <= 0.5 (on 0-255).
 """
@@ -50,7 +53,7 @@ def _fmt(vals, f):
 def test_matches_browser(label, inp, ref, model, passes):
     decoded = decode_image((REFERENCE / inp).read_bytes())
     net = load_network(DEFAULT_WEIGHTS_DIR, model, "rl")
-    out = process_image(net, decoded.rgb, decoded.alpha, passes, "png", 512 * 512, True)
+    out = process_image(net, decoded.rgb, decoded.alpha, passes, "png", 512 * 512)
 
     expected = np.asarray(Image.open(REFERENCE / ref).convert("RGBA")).astype(np.int32)
     if out.shape[2] == 3:  # opaque input -> RGB PNG; the browser's PNG has alpha == 255
@@ -71,13 +74,13 @@ def test_matches_browser(label, inp, ref, model, passes):
 
 @pytest.mark.parametrize("case", _harness_cases(), ids=[c["reference"][:-4] for c in _harness_cases()])
 def test_matches_browser_harness_captures(case):
-    """Extra captures (sizes that are not multiples of 8, other content types, 2 passes
-    with alpha, the non-PNG path) from the real @websr/websr in Chrome. See the
-    manifest for how they were produced."""
+    """Extra captures (sizes that are not multiples of 8 incl. tiny ones, other content
+    types, 2-3 passes, alpha, the non-PNG path) from the real @websr/websr in Chrome,
+    run through the website's padding/crop code. See the manifest."""
     base = REFERENCE / "harness"
     decoded = decode_image((base / case["input"]).read_bytes())
     net = load_network(DEFAULT_WEIGHTS_DIR, case["model"], case["content"])
-    out = process_image(net, decoded.rgb, decoded.alpha, case["passes"], case["format"], 512 * 512, True)
+    out = process_image(net, decoded.rgb, decoded.alpha, case["passes"], case["format"], 512 * 512)
     expected = np.asarray(Image.open(base / case["reference"]).convert("RGBA")).astype(np.int32)
     if out.shape[2] == 3:
         out = np.dstack([out, np.full(out.shape[:2], 255, np.uint8)])
@@ -94,18 +97,27 @@ def test_matches_browser_harness_captures(case):
         assert max(mean) <= INTERIOR_MEAN, f"{label} {region}: mean abs diff {mean}"
 
 
-def test_browser_dispatch_quirk_is_reproduced_for_non_multiple_of_8():
-    """The browser never computes the last (size % 8) rows/columns, so those stay a plain
-    linear upscale. 'full' mode computes them; the real capture proves 'browser' mode is
-    what the site produces."""
+def test_every_pixel_of_a_non_multiple_of_8_input_goes_through_the_model():
+    """WebSR only dispatches whole 8x8 workgroups, so without padding the last
+    ``size % 8`` columns/rows of a 100x76 input stay a plain linear upscale. The real
+    capture of the fixed web path must instead match the API (padded) and differ from
+    the linear upscale in exactly those strips."""
+    from app.engine.upscale import _display
+
     base = REFERENCE / "harness"
     decoded = decode_image((base / "odd_100x76.png").read_bytes())
     net = load_network(DEFAULT_WEIGHTS_DIR, "medium", "rl")
     expected = np.asarray(Image.open(base / "medium_odd_100x76_p1_png.png").convert("RGB")).astype(np.int32)
-    browser = process_image(net, decoded.rgb, None, 1, "png", 512 * 512, True).astype(np.int32)
-    full = process_image(net, decoded.rgb, None, 1, "png", 512 * 512, False).astype(np.int32)
-    assert np.abs(browser - expected).max() <= 1
-    assert np.abs(full - expected).max() >= 8
+    out = process_image(net, decoded.rgb, None, 1, "png", 512 * 512).astype(np.int32)
+    assert np.abs(out - expected).max() <= 1
+
+    h, w, _ = decoded.rgb.shape
+    zero = [np.zeros((h, w, 4), np.float32) for _ in range(3)]
+    linear = _display(decoded.rgb, 0, h, zero, True).astype(np.int32)
+    right = np.abs(expected - linear)[:, 2 * (w - w % 8) :]  # last 4 input columns -> 8 output
+    bottom = np.abs(expected - linear)[2 * (h - h % 8) :, :]
+    assert right.max() >= 8 and bottom.max() >= 8, "strips still look like a plain linear upscale"
+    assert np.abs(out - linear)[:, 2 * (w - w % 8) :].max() >= 8
 
 
 def test_pixelwise_exact_for_opaque_references():
@@ -113,7 +125,7 @@ def test_pixelwise_exact_for_opaque_references():
     for _, inp, ref, model, passes in CASES[:4]:
         decoded = decode_image((REFERENCE / inp).read_bytes())
         net = load_network(DEFAULT_WEIGHTS_DIR, model, "rl")
-        out = process_image(net, decoded.rgb, decoded.alpha, passes, "png", 512 * 512, True)
+        out = process_image(net, decoded.rgb, decoded.alpha, passes, "png", 512 * 512)
         expected = np.asarray(Image.open(REFERENCE / ref).convert("RGB")).astype(np.int32)
         diff = np.abs(out.astype(np.int32) - expected)
         assert diff.max() <= 1
@@ -127,7 +139,7 @@ def test_each_edge_rule_matters():
 
     decoded = decode_image((REFERENCE / "input_64.png").read_bytes())
     net = load_network(DEFAULT_WEIGHTS_DIR, "medium", "rl")
-    good = process_image(net, decoded.rgb, None, 1, "png", 512 * 512, True)
+    good = process_image(net, decoded.rgb, None, 1, "png", 512 * 512)
     original = forward._pad_flat
 
     def zero_pad(buf, corner):
@@ -138,7 +150,7 @@ def test_each_edge_rule_matters():
 
     forward._pad_flat = zero_pad
     try:
-        bad = process_image(net, decoded.rgb, None, 1, "png", 512 * 512, True)
+        bad = process_image(net, decoded.rgb, None, 1, "png", 512 * 512)
     finally:
         forward._pad_flat = original
     assert np.abs(good.astype(int) - bad.astype(int)).max() > 4

@@ -1,55 +1,46 @@
 <!doctype html>
 <!-- Regenerates tests/reference/harness/*.png with the REAL @websr/websr (node_modules dist)
-     in Chrome/WebGPU. renderChain / createMattedImageBitmap / composeAlpha are copied from
-     src/worker.ts. Usage:  python3 tests/tools/browser_reference/server.py
+     in Chrome/WebGPU, through the SAME pipeline code the website's worker uses:
+     src/lib/render-chain.ts (PassFrame edge padding + crop, renderChain, matte, composeAlpha,
+     encodeCanvas) and src/lib/upscale-math.ts (padded sizes). server.py transpiles those
+     TypeScript files on the fly (/lib/*), so nothing here re-implements them; only the
+     per-pass WebSR instance setup below mirrors worker.ts getInstance()/buildChain().
+     Usage:  python3 tests/tools/browser_reference/server.py
      then open http://127.0.0.1:8097/gen.html in Chrome; outputs appear in _out/.
      Format "raw" = non-PNG output type: the canvas is snapshotted losslessly instead of
      encoding lossy JPEG/WebP. -->
 <html><body><pre id="out">starting</pre>
 <script src="/websr.js"></script>
-<script>
+<script type="module">
+import { PassFrame, renderChain, encodeCanvas } from '/lib/render-chain.js';
+
 const log=[]; const out=document.getElementById('out');
 function say(s){log.push(s); out.textContent=log.join('\n');}
 let device;
-function matte(bitmap){
-  const c=new OffscreenCanvas(bitmap.width,bitmap.height); const x=c.getContext('2d');
-  x.fillStyle='#fffaf2'; x.fillRect(0,0,c.width,c.height); x.drawImage(bitmap,0,0);
-  return c.transferToImageBitmap();
-}
-async function composeAlpha(rendered, original){
-  const oc=new OffscreenCanvas(rendered.width,rendered.height); const octx=oc.getContext('2d',{willReadFrequently:true});
-  octx.clearRect(0,0,oc.width,oc.height); octx.drawImage(rendered,0,0);
-  const ac=new OffscreenCanvas(oc.width,oc.height); const actx=ac.getContext('2d',{willReadFrequently:true});
-  actx.imageSmoothingEnabled=true; actx.imageSmoothingQuality='high';
-  actx.clearRect(0,0,ac.width,ac.height); actx.drawImage(original,0,0,ac.width,ac.height);
-  const oi=octx.getImageData(0,0,oc.width,oc.height); const ai=actx.getImageData(0,0,ac.width,ac.height);
-  for(let i=3;i<oi.data.length;i+=4) oi.data[i]=ai.data[i];
-  octx.putImageData(oi,0,0);
-  return oc.convertToBlob({type:'image/png'});
-}
+
 async function runJob(job){
   const weights=await (await fetch(`/weights/cnn-2x-${job.size[0]}-${job.content}.json`)).json();
   const blob=await (await fetch(`/input/${job.input}`)).blob();
   const bitmap=await createImageBitmap(blob);
   const preserve=job.format==='png';
-  let current=bitmap, owned=null, w=bitmap.width, h=bitmap.height, last;
+
+  // One WebSR instance per pass, built at the PADDED size (worker.ts getInstance/buildChain).
+  const steps=[]; let w=bitmap.width, h=bitmap.height;
   for(let i=0;i<job.passes;i++){
-    const canvas=new OffscreenCanvas(w*2,h*2);
-    const websr=new WebSR({network_name:`anime4k/cnn-2x-${job.size[0]}`,weights,resolution:{width:w,height:h},gpu:device,canvas});
-    const input=(i===0&&preserve)?matte(current):current;
-    await websr.render(input);
-    if(input!==current) input.close();
-    if(owned){owned.close();owned=null;}
-    last=canvas;
-    if(i<job.passes-1){owned=await createImageBitmap(canvas);current=owned;w*=2;h*=2;}
+    const frame=new PassFrame({width:w,height:h});
+    const g=frame.geometry;
+    const canvas=new OffscreenCanvas(g.paddedOutput.width,g.paddedOutput.height);
+    const websr=new WebSR({network_name:`anime4k/cnn-2x-${job.size[0]}`,weights,resolution:g.padded,gpu:device,canvas});
+    steps.push({frame,canvas,render:(src)=>websr.render(src)});
+    w*=2; h*=2;
   }
-  let outBlob;
-  if(preserve){
-    const rb=await createImageBitmap(await last.convertToBlob({type:'image/png'}));
-    outBlob=await composeAlpha(rb,bitmap);
-  } else outBlob=await last.convertToBlob({type:'image/png'});
+
+  const finalCanvas=await renderChain(steps,bitmap,{preserveAlpha:preserve});
+  const outBlob=preserve
+    ? await encodeCanvas(finalCanvas,'image/png',bitmap)
+    : await finalCanvas.convertToBlob({type:'image/png'});
   const r=await fetch(`/save?name=${job.name}.png`,{method:'POST',body:outBlob});
-  say(job.name+' '+r.status+' '+outBlob.size);
+  say(job.name+' '+r.status+' '+outBlob.size+' '+finalCanvas.width+'x'+finalCanvas.height);
 }
 (async()=>{
   try{
