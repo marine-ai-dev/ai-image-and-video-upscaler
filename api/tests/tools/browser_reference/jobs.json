@@ -1,0 +1,82 @@
+[
+ {
+  "name": "small_odd_100x76_p1_png",
+  "input": "odd_100x76.png",
+  "size": "small",
+  "content": "rl",
+  "passes": 1,
+  "format": "png"
+ },
+ {
+  "name": "medium_odd_100x76_p1_png",
+  "input": "odd_100x76.png",
+  "size": "medium",
+  "content": "rl",
+  "passes": 1,
+  "format": "png"
+ },
+ {
+  "name": "large_odd_100x76_p1_png",
+  "input": "odd_100x76.png",
+  "size": "large",
+  "content": "rl",
+  "passes": 1,
+  "format": "png"
+ },
+ {
+  "name": "medium_odd_69x45_p1_png",
+  "input": "odd_69x45.png",
+  "size": "medium",
+  "content": "rl",
+  "passes": 1,
+  "format": "png"
+ },
+ {
+  "name": "large_odd100_an_p1_png",
+  "input": "odd_100x76.png",
+  "size": "large",
+  "content": "an",
+  "passes": 1,
+  "format": "png"
+ },
+ {
+  "name": "large_odd100_3d_p1_png",
+  "input": "odd_100x76.png",
+  "size": "large",
+  "content": "3d",
+  "passes": 1,
+  "format": "png"
+ },
+ {
+  "name": "medium_odd100_p2_png",
+  "input": "odd_100x76.png",
+  "size": "medium",
+  "content": "rl",
+  "passes": 2,
+  "format": "png"
+ },
+ {
+  "name": "medium_alphaodd_p1_png",
+  "input": "alpha_odd_93x61.png",
+  "size": "medium",
+  "content": "rl",
+  "passes": 1,
+  "format": "png"
+ },
+ {
+  "name": "medium_alpha192_p2_png",
+  "input": "input_alpha_192.png",
+  "size": "medium",
+  "content": "rl",
+  "passes": 2,
+  "format": "png"
+ },
+ {
+  "name": "small_alpha192_p1_raw",
+  "input": "input_alpha_192.png",
+  "size": "small",
+  "content": "rl",
+  "passes": 1,
+  "format": "raw"
+ }
+]

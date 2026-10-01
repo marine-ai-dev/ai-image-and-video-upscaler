@@ -1,0 +1,85 @@
+{
+ "_about": "Captured in Chrome/Metal by running the real @websr/websr 0.0.14 (node_modules dist) through a harness that copies worker.ts renderChain/matte/composeAlpha. format=webp means a non-PNG output type: canvas pixels were snapshotted losslessly instead of encoding lossy WebP.",
+ "cases": [
+  {
+   "reference": "small_odd_100x76_p1_png.png",
+   "input": "odd_100x76.png",
+   "model": "small",
+   "content": "rl",
+   "passes": 1,
+   "format": "png"
+  },
+  {
+   "reference": "medium_odd_100x76_p1_png.png",
+   "input": "odd_100x76.png",
+   "model": "medium",
+   "content": "rl",
+   "passes": 1,
+   "format": "png"
+  },
+  {
+   "reference": "large_odd_100x76_p1_png.png",
+   "input": "odd_100x76.png",
+   "model": "large",
+   "content": "rl",
+   "passes": 1,
+   "format": "png"
+  },
+  {
+   "reference": "medium_odd_69x45_p1_png.png",
+   "input": "odd_69x45.png",
+   "model": "medium",
+   "content": "rl",
+   "passes": 1,
+   "format": "png"
+  },
+  {
+   "reference": "large_odd100_an_p1_png.png",
+   "input": "odd_100x76.png",
+   "model": "large",
+   "content": "an",
+   "passes": 1,
+   "format": "png"
+  },
+  {
+   "reference": "large_odd100_3d_p1_png.png",
+   "input": "odd_100x76.png",
+   "model": "large",
+   "content": "3d",
+   "passes": 1,
+   "format": "png"
+  },
+  {
+   "reference": "medium_odd100_p2_png.png",
+   "input": "odd_100x76.png",
+   "model": "medium",
+   "content": "rl",
+   "passes": 2,
+   "format": "png"
+  },
+  {
+   "reference": "medium_alphaodd_p1_png.png",
+   "input": "alpha_odd_93x61.png",
+   "model": "medium",
+   "content": "rl",
+   "passes": 1,
+   "format": "png"
+  },
+  {
+   "reference": "medium_alpha192_p2_png.png",
+   "input": "../input_alpha_192.png",
+   "model": "medium",
+   "content": "rl",
+   "passes": 2,
+   "format": "png"
+  },
+  {
+   "reference": "small_alpha192_p1_raw.png",
+   "input": "../input_alpha_192.png",
+   "model": "small",
+   "content": "rl",
+   "passes": 1,
+   "format": "webp"
+  }
+ ]
+}

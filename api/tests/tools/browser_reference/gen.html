@@ -1,0 +1,62 @@
+<!doctype html>
+<!-- Regenerates tests/reference/harness/*.png with the REAL @websr/websr (node_modules dist)
+     in Chrome/WebGPU. renderChain / createMattedImageBitmap / composeAlpha are copied from
+     src/worker.ts. Usage:  python3 tests/tools/browser_reference/server.py
+     then open http://127.0.0.1:8097/gen.html in Chrome; outputs appear in _out/.
+     Format "raw" = non-PNG output type: the canvas is snapshotted losslessly instead of
+     encoding lossy JPEG/WebP. -->
+<html><body><pre id="out">starting</pre>
+<script src="/websr.js"></script>
+<script>
+const log=[]; const out=document.getElementById('out');
+function say(s){log.push(s); out.textContent=log.join('\n');}
+let device;
+function matte(bitmap){
+  const c=new OffscreenCanvas(bitmap.width,bitmap.height); const x=c.getContext('2d');
+  x.fillStyle='#fffaf2'; x.fillRect(0,0,c.width,c.height); x.drawImage(bitmap,0,0);
+  return c.transferToImageBitmap();
+}
+async function composeAlpha(rendered, original){
+  const oc=new OffscreenCanvas(rendered.width,rendered.height); const octx=oc.getContext('2d',{willReadFrequently:true});
+  octx.clearRect(0,0,oc.width,oc.height); octx.drawImage(rendered,0,0);
+  const ac=new OffscreenCanvas(oc.width,oc.height); const actx=ac.getContext('2d',{willReadFrequently:true});
+  actx.imageSmoothingEnabled=true; actx.imageSmoothingQuality='high';
+  actx.clearRect(0,0,ac.width,ac.height); actx.drawImage(original,0,0,ac.width,ac.height);
+  const oi=octx.getImageData(0,0,oc.width,oc.height); const ai=actx.getImageData(0,0,ac.width,ac.height);
+  for(let i=3;i<oi.data.length;i+=4) oi.data[i]=ai.data[i];
+  octx.putImageData(oi,0,0);
+  return oc.convertToBlob({type:'image/png'});
+}
+async function runJob(job){
+  const weights=await (await fetch(`/weights/cnn-2x-${job.size[0]}-${job.content}.json`)).json();
+  const blob=await (await fetch(`/input/${job.input}`)).blob();
+  const bitmap=await createImageBitmap(blob);
+  const preserve=job.format==='png';
+  let current=bitmap, owned=null, w=bitmap.width, h=bitmap.height, last;
+  for(let i=0;i<job.passes;i++){
+    const canvas=new OffscreenCanvas(w*2,h*2);
+    const websr=new WebSR({network_name:`anime4k/cnn-2x-${job.size[0]}`,weights,resolution:{width:w,height:h},gpu:device,canvas});
+    const input=(i===0&&preserve)?matte(current):current;
+    await websr.render(input);
+    if(input!==current) input.close();
+    if(owned){owned.close();owned=null;}
+    last=canvas;
+    if(i<job.passes-1){owned=await createImageBitmap(canvas);current=owned;w*=2;h*=2;}
+  }
+  let outBlob;
+  if(preserve){
+    const rb=await createImageBitmap(await last.convertToBlob({type:'image/png'}));
+    outBlob=await composeAlpha(rb,bitmap);
+  } else outBlob=await last.convertToBlob({type:'image/png'});
+  const r=await fetch(`/save?name=${job.name}.png`,{method:'POST',body:outBlob});
+  say(job.name+' '+r.status+' '+outBlob.size);
+}
+(async()=>{
+  try{
+    const adapter=await navigator.gpu.requestAdapter(); device=await adapter.requestDevice();
+    const jobs=await (await fetch('/jobs.json')).json();
+    for(const j of jobs){ try{ await runJob(j);}catch(e){say(j.name+' ERR '+e);} }
+    say('DONE');
+  }catch(e){say('FATAL '+e+' '+(e.stack||''));}
+})();
+</script></body></html>
